@@ -345,7 +345,8 @@ export default function Verify() {
       )}
 
       <Text style={styles.footnote}>
-        Údaje ověřujete sami ze svého telefonu na oficiálních webech (eDálnice, ČKP, ministerstvo dopravy) a u služby Autokuk.cz.
+        Údaje ověřujete sami ze svého telefonu na webech eDálnice, ČKP, overeniauta.cz a ministerstva dopravy
+        {vehicleApiConfigured() ? ' a u služby Autokuk.cz.' : '.'}
       </Text>
     </Screen>
   );
