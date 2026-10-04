@@ -6,6 +6,7 @@ Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 - **Povinné ručení.** Ukáže tři nabídky: nejlepší cenu, stejnou cenu s více výhodami a placenou nabídku partnera.
 - **Cesta do práce.** Jednou zadáte domov, práci a kdy tam chcete být. Každé ráno appka podle aktuálního provozu řekne, kolik dnes pojedete a kdy nejpozději vyrazit, odpoledne ukáže cestu domů. Ve všední dny může ráno připomenout, ať se podíváte.
 - **Nehoda krok za krokem.** Po nehodě appka provede bezpečností, řekne, jestli volat policii, uloží místo a čas, vyfotí škody i doklady druhého řidiče a připraví PDF podklad pro pojišťovnu.
+- **Prověřit ojetinu.** Před koupí auta appka zdarma zjistí, jestli ho nehledá policie jako kradené, a podle VIN nakreslí historii tachometru z technických kontrol. Upozorní, když km šly dozadu.
 - **Kdy vyrazit.** Pro jízdu teď, dnes večer, zítra ráno nebo o víkendu spočítá nejlepší čas odjezdu.
 - **Objížďky a nabíjení.** Poradí, jestli objet uzavírku, a majitelům elektroaut podle dojezdu navrhne nabíjení na trase.
 - **Vozový park.** Zdarma je jedno auto, s předplatným Premium (29 Kč měsíčně) neomezeně aut a žádná reklama.
@@ -20,9 +21,9 @@ Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 | --- | --- | --- | --- | --- |
 | ![Povinné ručení](docs/snimky/06-ruceni.png) | ![Kdy vyrazit](docs/snimky/07-jizda.png) | ![Trasa](docs/snimky/08-trasa.png) | ![Vozový park](docs/snimky/09-auta.png) | ![Premium](docs/snimky/10-premium.png) |
 
-| Cesta do práce | Ráno na domovské stránce | Nehoda: bezpečnost | Nehoda: shrnutí |
-| --- | --- | --- | --- |
-| ![Cesta do práce](docs/snimky/11-prace-nastaveni.png) | ![Ráno na domovské stránce](docs/snimky/12-prace-rano.png) | ![Nehoda: bezpečnost](docs/snimky/13-nehoda-bezpecnost.png) | ![Nehoda: shrnutí](docs/snimky/14-nehoda-shrnuti.png) |
+| Cesta do práce | Ráno na domovské stránce | Nehoda: bezpečnost | Nehoda: shrnutí | Prověřit ojetinu |
+| --- | --- | --- | --- | --- |
+| ![Cesta do práce](docs/snimky/11-prace-nastaveni.png) | ![Ráno na domovské stránce](docs/snimky/12-prace-rano.png) | ![Nehoda: bezpečnost](docs/snimky/13-nehoda-bezpecnost.png) | ![Nehoda: shrnutí](docs/snimky/14-nehoda-shrnuti.png) | ![Prověřit ojetinu](docs/snimky/15-ojetina.png) |
 
 ## Jak si appku vyzkoušet na telefonu
 
@@ -45,6 +46,8 @@ Appka zatím nepoužívá žádnou placenou službu. Zkouší zdroje v tomto po�
 
 1. **Oficiální weby přímo v telefonu.** Appka otevře na pozadí eDálnici (dálniční známka, edalnice.gov.cz), overeniauta.cz (VIN a STK) a kontrolatachometru.cz (STK podle VIN). Vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku nebo potvrdit „nejsem robot“, appka mu to ukáže a klient to udělá sám.
 2. **Ruční zadání.** Co se nepodaří zjistit, klient zadá tlačítky (den, měsíc, rok).
+
+**Prověření ojetiny** používá stejný postup: v telefonu otevře pátrání po vozidlech na policie.gov.cz (podle VIN nebo SPZ) a kontrolatachometru.cz (podle VIN). Kód z obrázku opíše klient sám.
 
 **Povinné ručení** appka sama nezjišťuje. Vyhledávání pojistitele u ČKP je určené jen poškozeným po dopravní nehodě (formulář chce čestné prohlášení) a ukazuje jen pojišťovnu, ne konec smlouvy. Klient proto vybere pojišťovnu tlačítkem a zadá výročí ze smlouvy nebo zelené karty. Appka pak výročí hlídá každý rok.
 
@@ -96,6 +99,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 | Cesta do práce: dnešní doba jízdy a kdy vyrazit | Funguje s klíčem Mapy.com, doba jízdy je podle aktuálního provozu |
 | Ranní připomínka cesty do práce | Funguje v telefonu (ne v Expo Go na Androidu ani v prohlížeči) |
 | Nehoda krok za krokem: policie, fotky, poloha, PDF podklad | Funguje v telefonu. Pravidla pro policii podle zákona 361/2000 Sb. platná od 1. 7. 2025 (škoda nad 200 000 Kč). V prohlížeči se místo PDF otevře tisk |
+| Prověření ojetiny: kradené auto a historie tachometru | Hotové, ale čtení výsledků z webu policie a kontroly tachometru je nutné vyzkoušet na skutečném telefonu |
 | Nejlepší čas odjezdu | Délka jízdy z Mapy.com, zdržení ve špičkách zatím odhadujeme |
 | Uzavírky a objížďky | Chybí, čeká na přístup k datům ŘSD |
 | Nabíjení elektroaut | Podle délky trasy pozná, jestli auto dojede. Mapa nabíječek chybí |
@@ -104,7 +108,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 
 ## Co je potřeba udělat před spuštěním
 
-- **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
+- **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz, kontrolatachometru.cz a pátrání policie na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
 - **Povinné ručení.** Zprostředkovat pojištění smí jen registrovaný subjekt u ČNB. Nejjednodušší je partnerský (affiliate) program srovnávače nebo pojišťovny. Placenou nabídku partnera je nutné v appce označit jako reklamu, to už appka dělá.
 - **Doprava a mapy.** Získat přístup k uzavírkám ŘSD a nechat si potvrdit použití v appce s reklamou a předplatným. Napojit mapu nabíječek (Open Charge Map) a nahradit odhad zdržení ve špičkách skutečnými daty.
 - **Peníze.** Reklama přes Google AdMob, předplatné přes Google Play a App Store (vývojářský účet Google stojí jednorázově 25 USD, Apple 99 USD ročně).

@@ -26,6 +26,8 @@ const STEP_COVERS: Record<StepId, DeadlineKind[]> = {
   edalnice: ['vignette'],
   overeniauta: ['stk'],
   tachometr: ['stk'],
+  // Policie se tu nevolá, patří k prověření ojetiny.
+  policie: [],
 };
 
 const FIELD: Record<DeadlineKind, 'vignetteUntil' | 'stkUntil' | 'insuranceUntil'> = {

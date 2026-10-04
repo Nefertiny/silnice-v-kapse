@@ -25,6 +25,19 @@ function Logo() {
   );
 }
 
+/** Vedlejší možnost: prověření ojetiny před koupí. */
+function UsedCarEntry() {
+  return (
+    <StatusRow
+      icon="shield"
+      title="Kupujete ojetinu?"
+      subtitle="Zdarma zjistíme, jestli není kradená a jestli nešel tachometr dozadu"
+      tone="accent"
+      onPress={() => router.push('/ojetina')}
+    />
+  );
+}
+
 function Ring({ value, total }: { value: number; total: number }) {
   const r = 34;
   const c = 2 * Math.PI * r;
@@ -73,6 +86,7 @@ export default function Home() {
         <SecondaryButton label="Kdy vyrazit?" icon="route" onPress={() => router.push('/jizda')} />
         <CommuteCard />
         <AccidentEntry />
+        <UsedCarEntry />
       </Screen>
     );
   }
@@ -167,6 +181,7 @@ export default function Home() {
       </View>
 
       <AccidentEntry />
+      <UsedCarEntry />
 
       {!premium && <AdBanner onHide={() => router.push('/premium')} />}
     </Screen>
