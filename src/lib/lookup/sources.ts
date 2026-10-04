@@ -168,16 +168,23 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     reported = true;
     post({ type: 'result', text: text.slice(0, 6000) });
   }
+  // Jen řádky, které po odeslání přibyly. Stránky mají i stálé texty (např. eDálnice
+  // „zda je Vaše vozidlo od úhrady osvobozeno“), které se nesmí plést s výsledkem.
+  function newLines(text, before) {
+    if (before === null) return text;
+    var seen = {};
+    before.split('\\n').forEach(function (l) { seen[l.trim()] = true; });
+    return text.split('\\n').filter(function (l) { var t = l.trim(); return t && !seen[t]; }).join('\\n');
+  }
   // Hlídá jen jedna smyčka a výsledek se pošle jen jednou, i když člověk potvrdí kontrolu víckrát.
   function watchResult(before) {
     if (watching) return;
     watching = true;
     var n = 0;
     (function wait() {
-      var text = resultText();
-      var changed = before === null || text !== before;
-      if (changed && /\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|nejsou platn|osvoboz|chybn|nesprávn/i.test(text)) {
-        return report(text);
+      var fresh = newLines(resultText(), before);
+      if (/\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|nejsou platn|osvoboz|chybn|nesprávn|nemá pro dnešní den|vyrazit na cestu|ověřit další|nepodařilo|selhalo/i.test(fresh)) {
+        return report(fresh);
       }
       // Ochrana proti robotům (např. Cloudflare Turnstile) se může ukázat až po odeslání.
       // Pak ji ukážeme člověku a čekáme déle, než ji potvrdí.
@@ -185,7 +192,7 @@ export function buildLookupScript(source: LookupSource, value: string): string {
         widgetShown = true;
         post({ type: 'captcha-widget' });
       }
-      if (++n < (widgetShown ? 240 : 30)) setTimeout(wait, 500); else report(text);
+      if (++n < (widgetShown ? 240 : 30)) setTimeout(wait, 500); else report(fresh);
     })();
   }
   var field = null;

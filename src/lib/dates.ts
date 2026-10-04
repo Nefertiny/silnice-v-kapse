@@ -40,13 +40,16 @@ export function daysUntil(iso: string, today: Date = new Date()): number {
   return Math.round((parseIsoDate(iso).getTime() - start.getTime()) / DAY);
 }
 
-/** Vrátí všechna data ve tvaru „31. 1. 2027“ nebo „31.01.2027“ z textu, jako RRRR-MM-DD. */
+const CZ_MONTHS = ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+
+/** Vrátí všechna data ve tvaru „31. 1. 2027“, „31.01.2027“ nebo „31. ledna 2027“ z textu, jako RRRR-MM-DD. */
 export function findCzDates(text: string): string[] {
   const out: string[] = [];
-  const re = /(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4})/g;
+  const re = new RegExp(`(\\d{1,2})\\.\\s?(?:(\\d{1,2})\\.|(${CZ_MONTHS.join('|')}))\\s?(\\d{4})`, 'gi');
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const [, d, mo, y] = m;
+    const [, d, num, name, y] = m;
+    const mo = num ?? String(CZ_MONTHS.indexOf(name.toLowerCase()) + 1);
     out.push(`${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`);
   }
   return out;

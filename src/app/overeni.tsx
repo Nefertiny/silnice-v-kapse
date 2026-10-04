@@ -58,7 +58,8 @@ function initialQueue(car?: Car): StepId[] {
 function patchFrom(outcome: LookupOutcome): Partial<Car> | null {
   switch (outcome.kind) {
     case 'vignette':
-      return outcome.exempt ? { vignetteExempt: true } : outcome.until ? { vignetteUntil: outcome.until } : null;
+      if (outcome.exempt) return { vignetteExempt: true };
+      return outcome.until ? { vignetteUntil: outcome.until, vignetteExempt: false } : { vignetteExempt: false };
     case 'stk':
       return { stkUntil: outcome.estimatedUntil };
     case 'vehicle':
@@ -275,7 +276,8 @@ export default function Verify() {
           initial={car[FIELD[editing]]}
           onCancel={() => setEditing(null)}
           onSave={(iso) => {
-            updateCar(car.id, { [FIELD[editing]]: iso }, { reschedule: false });
+            // Ručně zadané datum známky ruší i dřívější „osvobozeno“.
+            updateCar(car.id, { [FIELD[editing]]: iso, ...(editing === 'vignette' ? { vignetteExempt: false } : {}) }, { reschedule: false });
             setEditing(null);
           }}
         />

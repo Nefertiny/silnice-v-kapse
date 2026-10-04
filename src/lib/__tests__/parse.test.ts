@@ -17,11 +17,31 @@ describe('parseLookup', () => {
       valid: true,
     });
     expect(parseLookup('edalnice', 'Vozidlo je od časového poplatku osvobozeno.', today)).toMatchObject({ exempt: true });
+    // Obecné texty z titulní stránky eDálnice nejsou výsledek ověření.
+    const page = 'Ověřte, zda máte platnou elektronickou dálniční známku či zda je Vaše vozidlo od úhrady osvobozeno.\nOsvobozená vozidla';
+    expect(parseLookup('edalnice', page, today)).toEqual({ kind: 'unknown' });
+    expect(parseLookup('edalnice', `${page}\nPlatnost od 1. 2. 2026 do 31. 1. 2027`, today)).toMatchObject({ exempt: false, until: '2027-01-31' });
     expect(parseLookup('edalnice', 'Ověření platnosti\nZadané údaje nejsou platné.', today)).toEqual({
       kind: 'vignette',
       exempt: false,
       valid: false,
     });
+  });
+
+  it('reads the eDálnice result messages', () => {
+    expect(parseLookup('edalnice', 'Platná\nPlatná 1. února 2026 – 31. ledna 2027\nMůžete vyrazit na cestu.', today)).toMatchObject({
+      until: '2027-01-31',
+      valid: true,
+    });
+    expect(parseLookup('edalnice', 'Osvobozeno\nToto vozidlo je osvobozeno od zpoplatnění.', today)).toMatchObject({ exempt: true });
+    expect(parseLookup('edalnice', 'Neplatná\nVozidlo nemá pro dnešní den zakoupenou dálniční známku.', today)).toEqual({
+      kind: 'vignette',
+      exempt: false,
+      valid: false,
+    });
+    // „Možné osvobození“ není osvobození, platí se dál, dokud úřad žádost neschválí.
+    const possible = 'Možné osvobození\nVozidlo může být osvobozeno od poplatku. Pro potvrzení osvobození je nutné podat žádost.';
+    expect(parseLookup('edalnice', possible, today)).toEqual({ kind: 'unknown' });
   });
 
   it('estimates next STK from inspection history', () => {
