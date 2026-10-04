@@ -75,6 +75,23 @@ type RouteResponse = {
   geometry: { geometry: { coordinates: LonLat[] } };
 };
 
+export type Drive = { lengthKm: number; minutes: number; line: LonLat[] };
+
+/**
+ * Nejrychlejší jízda autem mezi dvěma body. S `traffic` počítá Mapy.com s aktuálním provozem,
+ * bez něj vrátí dobu jízdy po volných silnicích.
+ */
+export async function drive(from: LonLat, to: LonLat, traffic = false): Promise<Drive> {
+  const params = new URLSearchParams({ routeType: traffic ? 'car_fast_traffic' : 'car_fast', format: 'geojson' });
+  // Souřadnice se posílají jako dvě hodnoty stejného parametru: start=délka&start=šířka.
+  from.forEach((n) => params.append('start', String(n)));
+  to.forEach((n) => params.append('end', String(n)));
+  const r = await call<RouteResponse>('/routing/route', params);
+  const line = r.geometry?.geometry?.coordinates;
+  if (!line?.length) throw new RouteError('no-route');
+  return { lengthKm: Math.round(r.length / 1000), minutes: Math.round(r.duration / 60), line };
+}
+
 const routes = new Map<string, Promise<PlannedRoute>>();
 
 /** Najde obě místa a nejrychlejší trasu autem mezi nimi. */
@@ -82,16 +99,7 @@ export function planRoute(from: string, to: string): Promise<PlannedRoute> {
   const key = `${from.trim().toLowerCase()}|${to.trim().toLowerCase()}`;
   let p = routes.get(key);
   if (!p) {
-    p = Promise.all([findPlace(from), findPlace(to)]).then(async ([a, b]) => {
-      const params = new URLSearchParams({ routeType: 'car_fast', format: 'geojson' });
-      // Souřadnice se posílají jako dvě hodnoty stejného parametru: start=délka&start=šířka.
-      a.position.forEach((n) => params.append('start', String(n)));
-      b.position.forEach((n) => params.append('end', String(n)));
-      const r = await call<RouteResponse>('/routing/route', params);
-      const line = r.geometry?.geometry?.coordinates;
-      if (!line?.length) throw new RouteError('no-route');
-      return { from: a, to: b, lengthKm: Math.round(r.length / 1000), minutes: Math.round(r.duration / 60), line };
-    });
+    p = Promise.all([findPlace(from), findPlace(to)]).then(async ([a, b]) => ({ from: a, to: b, ...(await drive(a.position, b.position)) }));
     routes.set(key, p);
     p.catch(() => routes.delete(key));
   }

@@ -2,6 +2,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import type * as NotificationsModule from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { reminderMinute, type Commute } from './commute';
 import { carDeadlines, parseIsoDate } from './dates';
 import type { Car } from './types';
 
@@ -98,4 +99,34 @@ export async function scheduleCarReminders(car: Car): Promise<number> {
     }
   }
   return count;
+}
+
+const COMMUTE_PREFIX = 'commute:';
+/** Pondělí až pátek; expo-notifications čísluje dny od neděle = 1. */
+const WORKDAYS = [2, 3, 4, 5, 6];
+
+/** Ve všední dny ráno připomene, ať se podívá, kolik dnes pojede do práce. Null připomínky zruší. */
+export async function scheduleCommuteReminders(commute: Commute | null): Promise<number> {
+  if (!notificationsSupported) return 0;
+  const Notifications = notifications();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled.filter((n) => n.identifier.startsWith(COMMUTE_PREFIX)).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+  );
+  if (!commute?.remind || !(await ensurePermission())) return 0;
+  const at = reminderMinute(commute);
+  for (const weekday of WORKDAYS) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${COMMUTE_PREFIX}${weekday}`,
+      content: { title: 'Cesta do práce', body: 'Za chvíli vyrážíte. Podívejte se, kolik dnes pojedete a kdy vyrazit.' },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+        weekday,
+        hour: Math.floor(at / 60),
+        minute: at % 60,
+        channelId: CHANNEL,
+      },
+    });
+  }
+  return WORKDAYS.length;
 }

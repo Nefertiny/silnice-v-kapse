@@ -70,6 +70,15 @@ describe('Mapy.com route', () => {
     expect(calls).toHaveLength(3);
   });
 
+  it('asks for live traffic only when told to', async () => {
+    const mapy = load('test-key');
+    const calls: Call[] = [];
+    mockFetch({}, calls);
+    const today = await mapy.drive([15.8327, 50.2104], [15.7812, 50.0343], true);
+    expect(today).toMatchObject({ lengthKm: 205, minutes: 112 });
+    expect(new URL(calls[0].url).searchParams.get('routeType')).toBe('car_fast_traffic');
+  });
+
   it('says which place it could not find', async () => {
     const mapy = load('test-key');
     mockFetch({ Praha: PRAHA }, []);
