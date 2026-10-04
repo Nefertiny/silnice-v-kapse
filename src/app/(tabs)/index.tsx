@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { CommuteCard } from '@/components/CommuteCard';
 import { DEADLINE_ICON, deadlineLook } from '@/components/deadlineUi';
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
@@ -69,6 +70,7 @@ export default function Home() {
         </Body>
         <PrimaryButton label="Přidat auto" icon="plus" onPress={() => router.push('/pridat')} />
         <SecondaryButton label="Kdy vyrazit?" icon="route" onPress={() => router.push('/jizda')} />
+        <CommuteCard />
       </Screen>
     );
   }
@@ -134,6 +136,8 @@ export default function Home() {
           }}
         />
       )}
+
+      <CommuteCard />
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Hlídáme za vás</SectionLabel>
