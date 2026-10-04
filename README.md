@@ -23,11 +23,13 @@ Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 Potřebujete počítač s [Node.js](https://nodejs.org) (verze 20 nebo novější) a v telefonu aplikaci **Expo Go** (Google Play nebo App Store).
 
 1. Stáhněte si tento repozitář a otevřete jeho složku v terminálu.
-2. Nainstalujte balíčky: `npm install`
+2. Nainstalujte balíčky: `npm ci` (nainstaluje přesně verze z repozitáře a nic v něm nezmění)
 3. Spusťte vývojový server: `npx expo start`
 4. V terminálu se objeví QR kód. Na Androidu ho naskenujte v Expo Go, na iPhonu fotoaparátem. Telefon a počítač musí být na stejné Wi-Fi.
 
 Appka se otevře v telefonu a každá změna v kódu se v ní hned projeví.
+
+Expo Go na Androidu nepodporuje upozornění, proto je tam appka vynechá. Všechno ostatní funguje. Upozornění na termíny vyzkoušíte až ve vlastním sestavení appky (`npx eas-cli@latest build --profile development`) nebo na iPhonu.
 
 Rychlý náhled v prohlížeči spustíte příkazem `npx expo start --web`. Ověřování z oficiálních webů a upozornění v prohlížeči nefungují, data se tam zadávají ručně.
 

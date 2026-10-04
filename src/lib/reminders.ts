@@ -1,4 +1,5 @@
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import type * as NotificationsModule from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { carDeadlines, parseIsoDate } from './dates';
@@ -9,7 +10,25 @@ const CHANNEL = 'terminy';
 const OFFSETS = [30, 7, 1];
 const HOUR = 9;
 
+/**
+ * Expo Go na Androidu upozornění nepodporuje a už samotný import expo-notifications tam appku shodí.
+ * Proto modul načítáme až při použití a v Expo Go na Androidu upozornění vynecháme.
+ * Ve skutečné appce (development build i verze z obchodu) fungují normálně.
+ */
+export const notificationsSupported = !(
+  Platform.OS === 'android' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+);
+
+let loaded: typeof NotificationsModule | undefined;
+function notifications(): typeof NotificationsModule {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  loaded ??= require('expo-notifications') as typeof NotificationsModule;
+  return loaded;
+}
+
 export async function setupNotifications(): Promise<void> {
+  if (!notificationsSupported) return;
+  const Notifications = notifications();
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -27,6 +46,7 @@ export async function setupNotifications(): Promise<void> {
 }
 
 async function ensurePermission(): Promise<boolean> {
+  const Notifications = notifications();
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   const asked = await Notifications.requestPermissionsAsync();
@@ -34,6 +54,8 @@ async function ensurePermission(): Promise<boolean> {
 }
 
 export async function cancelCarReminders(carId: string): Promise<void> {
+  if (!notificationsSupported) return;
+  const Notifications = notifications();
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
@@ -49,6 +71,8 @@ function bodyFor(title: string, spz: string, offset: number): string {
 
 /** Naplánuje upozornění 30, 7 a 1 den před každým známým termínem. Vrací počet naplánovaných. */
 export async function scheduleCarReminders(car: Car): Promise<number> {
+  if (!notificationsSupported) return 0;
+  const Notifications = notifications();
   await cancelCarReminders(car.id);
   if (!(await ensurePermission())) return 0;
 
