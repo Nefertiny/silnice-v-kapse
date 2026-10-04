@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AccidentProvider } from '@/lib/accidentStore';
 import { CarsProvider } from '@/lib/cars';
 import { CommuteProvider } from '@/lib/commuteStore';
 import { setupNotifications } from '@/lib/reminders';
@@ -31,8 +32,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <CarsProvider>
         <CommuteProvider>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground }, animation: 'fade' }} />
+          <AccidentProvider>
+            <StatusBar style="light" />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground }, animation: 'fade' }} />
+          </AccidentProvider>
         </CommuteProvider>
       </CarsProvider>
     </SafeAreaProvider>

@@ -36,6 +36,19 @@
         {
           "color": "#38E1FF"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Appka fotí škody a doklady po nehodě.",
+          "photosPermission": "Appka vybírá fotky nehody z galerie."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Appka uloží místo nehody."
+        }
       ]
     ],
     "experiments": {
