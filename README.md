@@ -44,6 +44,20 @@ Appka zatím nepoužívá žádnou placenou službu. Zkouší zdroje v tomto po�
 
 VIN může klient zadat sám při přidání auta nebo později na domovské stránce. Zadaný VIN appka nikdy nepřepíše a použije ho k ověření STK na kontrolatachometru.cz, když ji jiné zdroje nenajdou.
 
+## Mapa a trasa (Mapy.com)
+
+Trasu, vzdálenost a dobu jízdy appka hledá přes [Mapy.com API](https://developer.mapy.com/). Tarif Basic je zdarma (250 000 kreditů měsíčně, hledání místa i trasy stojí 4 kredity) a nechce platební kartu. Mapu kreslí [OpenFreeMap](https://openfreemap.org/), ten je zdarma a klíč nepotřebuje.
+
+1. Na [developer.mapy.com](https://developer.mapy.com/) se vpravo nahoře přihlaste účtem Seznam a vytvořte nový projekt. Klíč se v něm vytvoří sám.
+2. V hlavní složce zkopírujte `.env.example` jako `.env` (pokud ho ještě nemáte) a doplňte klíč: `EXPO_PUBLIC_MAPY_API_KEY=váš-klíč`
+3. Zastavte a znovu spusťte `npx expo start`. Samotné `r` nestačí, klíč se načítá jen při startu.
+
+Soubor `.env` se do GitHubu nedává. Klíč ale bude uvnitř hotové appky, proto v něm nesmí být placený tarif bez limitu. U tarifu Basic se bez vašeho souhlasu nic neplatí.
+
+Bez klíče appka trasu nehledá a ukáže ukázkovou dobu jízdy.
+
+**Uzavírky** dodá Národní dopravní informační centrum ŘSD (data JSDI ve formátu DATEX II). Jsou zdarma, ale o přístup se žádá e-mailem na mobilitydata@rsd.cz. Appka pak musí vždy uvádět zdroj „ŘSD ČR – JSDI – www.dopravniinfo.cz“. Data chodí na server, proto je bude přijímat náš server na Cloudflare a appce pošle jen uzavírky na trase. Objížďku appka předá do navigace jako průjezdní bod (spolehlivě to umí Mapy.com, Waze to neumí).
+
 ## Volitelně: zapnutí Autokuk API
 
 Autokuk.cz podle SPZ vrátí VIN, značku, platnost STK a dálniční známky najednou, ale pro komerční použití vyžaduje placený tarif (za 299 Kč). Zatím ho nepoužíváme. Kód je připravený, takže ho jde kdykoli zapnout. Appka se pak zeptá nejdřív Autokuku a oficiální weby použije jen pro to, co Autokuk nevrátí (například povinné ručení).
@@ -72,9 +86,10 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 | Zjištění údajů přes Autokuk API | Připravené, ale vypnuté (placený tarif) |
 | Ruční zadání dat, pojišťovna a výročí ručení tlačítky | Funguje |
 | Ceny povinného ručení a tři nabídky | Ukázková data, chybí partner (pojišťovna nebo srovnávač) |
-| Nejlepší čas odjezdu | Ukázkový výpočet podle typické dopravní špičky |
-| Trasa, uzavírky, objížďky | Ukázka, chybí napojení na dopravní data a mapy |
-| Nabíjení elektroaut | Uloží dojezd, napojení na mapu nabíječek chybí |
+| Trasa, vzdálenost a mapa | Funguje s klíčem Mapy.com |
+| Nejlepší čas odjezdu | Délka jízdy z Mapy.com, zdržení ve špičkách zatím odhadujeme |
+| Uzavírky a objížďky | Chybí, čeká na přístup k datům ŘSD |
+| Nabíjení elektroaut | Podle délky trasy pozná, jestli auto dojede. Mapa nabíječek chybí |
 | Reklama | Jen místo pro banner |
 | Předplatné Premium | Testovací přepínač, skutečné platby chybí |
 
@@ -82,7 +97,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 
 - **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
 - **Povinné ručení.** Zprostředkovat pojištění smí jen registrovaný subjekt u ČNB. Nejjednodušší je partnerský (affiliate) program srovnávače nebo pojišťovny. Placenou nabídku partnera je nutné v appce označit jako reklamu, to už appka dělá.
-- **Doprava a mapy.** Napojit dopravní informace NDIC (DATEX II), plánování trasy (například Mapy.com API) a mapu nabíječek (Open Charge Map). Pak nahradit ukázkový výpočet odjezdu skutečným.
+- **Doprava a mapy.** Získat přístup k uzavírkám ŘSD a nechat si potvrdit použití v appce s reklamou a předplatným. Napojit mapu nabíječek (Open Charge Map) a nahradit odhad zdržení ve špičkách skutečnými daty.
 - **Peníze.** Reklama přes Google AdMob, předplatné přes Google Play a App Store (vývojářský účet Google stojí jednorázově 25 USD, Apple 99 USD ročně).
 - **Vydání.** Sestavit appku přes EAS Build (`npx eas build`) a nahrát do obchodů. Doplnit zásady ochrany osobních údajů.
 
