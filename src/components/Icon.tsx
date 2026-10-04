@@ -20,7 +20,12 @@ export type IconName =
   | 'minus'
   | 'refresh'
   | 'lock'
-  | 'trash';
+  | 'trash'
+  | 'camera'
+  | 'phone'
+  | 'pin'
+  | 'doc'
+  | 'close';
 
 type Props = { name: IconName; size?: number; color: string; strokeWidth?: number };
 
@@ -93,6 +98,28 @@ export function Icon({ name, size = 22, color, strokeWidth = 1.8 }: Props) {
         </>
       )}
       {name === 'trash' && <Path {...p} d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />}
+      {name === 'camera' && (
+        <>
+          <Path {...p} d="M3 8h4l2-3h6l2 3h4v11H3z" />
+          <Circle {...p} cx="12" cy="13" r="3.5" />
+        </>
+      )}
+      {name === 'phone' && (
+        <Path {...p} d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z" />
+      )}
+      {name === 'pin' && (
+        <>
+          <Path {...p} d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" />
+          <Circle {...p} cx="12" cy="9" r="2.5" />
+        </>
+      )}
+      {name === 'doc' && (
+        <>
+          <Path {...p} d="M6 3h8l4 4v14H6z" />
+          <Path {...p} d="M14 3v4h4M9 12h6M9 16h6" />
+        </>
+      )}
+      {name === 'close' && <Path {...p} d="M6 6l12 12M18 6L6 18" />}
     </Svg>
   );
 }

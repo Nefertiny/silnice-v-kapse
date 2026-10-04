@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
+import { AccidentEntry } from '@/components/AccidentEntry';
 import { CommuteCard } from '@/components/CommuteCard';
 import { DEADLINE_ICON, deadlineLook } from '@/components/deadlineUi';
 import { Icon } from '@/components/Icon';
@@ -71,6 +72,7 @@ export default function Home() {
         <PrimaryButton label="Přidat auto" icon="plus" onPress={() => router.push('/pridat')} />
         <SecondaryButton label="Kdy vyrazit?" icon="route" onPress={() => router.push('/jizda')} />
         <CommuteCard />
+        <AccidentEntry />
       </Screen>
     );
   }
@@ -163,6 +165,8 @@ export default function Home() {
         <PrimaryButton style={{ flex: 1 }} label="Kdy vyrazit?" icon="route" onPress={() => router.push('/jizda')} />
         <SecondaryButton style={{ flex: 1 }} label="Přidat auto" icon="plus" onPress={() => router.push('/pridat')} />
       </View>
+
+      <AccidentEntry />
 
       {!premium && <AdBanner onHide={() => router.push('/premium')} />}
     </Screen>
