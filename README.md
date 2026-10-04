@@ -2,7 +2,7 @@
 
 Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 
-- **Hlídání termínů.** Zadáte SPZ a appka zjistí a hlídá dálniční známku, technickou (STK) a povinné ručení. Měsíc, týden a den před koncem pošle upozornění.
+- **Hlídání termínů.** Zadáte SPZ (a když chcete, i VIN) a appka zjistí a hlídá dálniční známku, technickou (STK) a povinné ručení. Měsíc, týden a den před koncem pošle upozornění.
 - **Povinné ručení.** Ukáže tři nabídky: nejlepší cenu, stejnou cenu s více výhodami a placenou nabídku partnera.
 - **Kdy vyrazit.** Pro jízdu teď, dnes večer, zítra ráno nebo o víkendu spočítá nejlepší čas odjezdu.
 - **Objížďky a nabíjení.** Poradí, jestli objet uzavírku, a majitelům elektroaut podle dojezdu navrhne nabíjení na trase.
@@ -38,6 +38,8 @@ Appka zkouší zdroje v tomto pořadí a co nenajde, zkusí v dalším:
 1. **Autokuk API** přes náš server (složka `server/`). Podle SPZ vrátí VIN, značku, platnost STK a dálniční známky.
 2. **Oficiální weby přímo v telefonu.** Appka otevře eDálnici, overeniauta.cz, ČKP a kontrolatachometru.cz na pozadí, vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku, appka ho ukáže ve svém vzhledu a klient ho opíše sám.
 3. **Ruční zadání.** Co se nepodaří zjistit, klient zadá tlačítky (den, měsíc, rok).
+
+VIN může klient zadat sám při přidání auta nebo později na domovské stránce. Zadaný VIN appka nikdy nepřepíše a použije ho k ověření STK na kontrolatachometru.cz, když ji jiné zdroje nenajdou.
 
 Povinné ručení (pojišťovnu a výročí) zjišťujeme z ČKP, protože Autokuk ho nevrací.
 
