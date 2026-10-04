@@ -2,7 +2,7 @@
 
 Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 
-- **Hlídání termínů.** Zadáte SPZ a appka zjistí a hlídá dálniční známku, technickou (STK) a povinné ručení. Měsíc, týden a den před koncem pošle upozornění.
+- **Hlídání termínů.** Zadáte SPZ (a když chcete, i VIN) a appka zjistí a hlídá dálniční známku, technickou (STK) a povinné ručení. Měsíc, týden a den před koncem pošle upozornění.
 - **Povinné ručení.** Ukáže tři nabídky: nejlepší cenu, stejnou cenu s více výhodami a placenou nabídku partnera.
 - **Kdy vyrazit.** Pro jízdu teď, dnes večer, zítra ráno nebo o víkendu spočítá nejlepší čas odjezdu.
 - **Objížďky a nabíjení.** Poradí, jestli objet uzavírku, a majitelům elektroaut podle dojezdu navrhne nabíjení na trase.
@@ -33,19 +33,20 @@ Rychlý náhled v prohlížeči spustíte příkazem `npx expo start --web`. Ov�
 
 ## Odkud appka bere údaje o autě
 
-Appka zkouší zdroje v tomto pořadí a co nenajde, zkusí v dalším:
+Appka zatím nepoužívá žádnou placenou službu. Zkouší zdroje v tomto pořadí a co nenajde, zkusí v dalším:
 
-1. **Autokuk API** přes náš server (složka `server/`). Podle SPZ vrátí VIN, značku, platnost STK a dálniční známky.
-2. **Oficiální weby přímo v telefonu.** Appka otevře eDálnici, overeniauta.cz, ČKP a kontrolatachometru.cz na pozadí, vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku, appka ho ukáže ve svém vzhledu a klient ho opíše sám.
-3. **Ruční zadání.** Co se nepodaří zjistit, klient zadá tlačítky (den, měsíc, rok).
+1. **Oficiální weby přímo v telefonu.** Appka otevře na pozadí eDálnici (dálniční známka), overeniauta.cz (VIN a STK), kontrolatachometru.cz (STK podle VIN) a ČKP (pojišťovna a výročí povinného ručení). Vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku, appka ho ukáže ve svém vzhledu a klient ho opíše sám.
+2. **Ruční zadání.** Co se nepodaří zjistit, klient zadá tlačítky (den, měsíc, rok).
 
-Povinné ručení (pojišťovnu a výročí) zjišťujeme z ČKP, protože Autokuk ho nevrací.
+VIN může klient zadat sám při přidání auta nebo později na domovské stránce. Zadaný VIN appka nikdy nepřepíše a použije ho k ověření STK na kontrolatachometru.cz, když ji jiné zdroje nenajdou.
 
-## Jak spustit server pro Autokuk API
+## Volitelně: zapnutí Autokuk API
+
+Autokuk.cz podle SPZ vrátí VIN, značku, platnost STK a dálniční známky najednou, ale pro komerční použití vyžaduje placený tarif (za 299 Kč). Zatím ho nepoužíváme. Kód je připravený, takže ho jde kdykoli zapnout. Appka se pak zeptá nejdřív Autokuku a oficiální weby použije jen pro to, co Autokuk nevrátí (například povinné ručení).
 
 Klíč k Autokuk API nesmí být v appce, jinak by si ho kdokoli vytáhl a čerpal z vašeho tarifu. Proto mezi appkou a Autokukem stojí malý server na Cloudflare (zdarma do 100 000 dotazů denně).
 
-1. Založte si účet na [cloudflare.com](https://dash.cloudflare.com/sign-up) a [Autokuk API](https://autokuk.cz/) s tarifem, který povoluje API.
+1. Založte si účet na [cloudflare.com](https://dash.cloudflare.com/sign-up) a na [autokuk.cz](https://autokuk.cz/) s tarifem, který povoluje komerční použití API.
 2. V terminálu přejděte do složky serveru: `cd server`
 3. Přihlaste se: `npx wrangler login`
 4. Uložte klíč jako tajnou hodnotu (terminál se na něj zeptá, nikam ho nepište ani neposílejte): `npx wrangler secret put AUTOKUK_API_KEY`
@@ -62,8 +63,9 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 | --- | --- |
 | Přidání auta, vozový park, limit jednoho auta zdarma | Funguje, data se ukládají v telefonu |
 | Upozornění 30, 7 a 1 den před koncem termínu | Funguje v telefonu (ne v prohlížeči) |
-| Zjištění údajů přes Autokuk API | Hotové, čeká na klíč a ověření skutečné odpovědi |
 | Ověření z oficiálních webů v telefonu | Hotové, ale adresy a formuláře je nutné vyzkoušet na skutečném telefonu |
+| Zadání VIN při přidání auta a na domovské stránce | Funguje |
+| Zjištění údajů přes Autokuk API | Připravené, ale vypnuté (placený tarif) |
 | Ruční zadání dat | Funguje |
 | Ceny povinného ručení a tři nabídky | Ukázková data, chybí partner (pojišťovna nebo srovnávač) |
 | Nejlepší čas odjezdu | Ukázkový výpočet podle typické dopravní špičky |
@@ -74,7 +76,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 
 ## Co je potřeba udělat před spuštěním
 
-- **Data o autě.** Ověřit podmínky Autokuk API pro použití v cizí appce a denní limity (info@autokuk.cz). Vyzkoušet eDálnici, ČKP, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití.
+- **Data o autě.** Vyzkoušet eDálnici, ČKP, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
 - **Povinné ručení.** Zprostředkovat pojištění smí jen registrovaný subjekt u ČNB. Nejjednodušší je partnerský (affiliate) program srovnávače nebo pojišťovny. Placenou nabídku partnera je nutné v appce označit jako reklamu, to už appka dělá.
 - **Doprava a mapy.** Napojit dopravní informace NDIC (DATEX II), plánování trasy (například Mapy.com API) a mapu nabíječek (Open Charge Map). Pak nahradit ukázkový výpočet odjezdu skutečným.
 - **Peníze.** Reklama přes Google AdMob, předplatné přes Google Play a App Store (vývojářský účet Google stojí jednorázově 25 USD, Apple 99 USD ročně).
@@ -85,5 +87,5 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 - Expo SDK 57, React Native 0.86, TypeScript, Expo Router (obrazovky v `src/app/`).
 - `npm run typecheck`, `npm run lint` a `npm test` musí projít před každou změnou.
 - `src/lib/lookup/` obsahuje ověřování z oficiálních webů (skrytý WebView, skript pro vyplnění formuláře a čtení výsledku).
-- `src/lib/vehicleApi.ts` volá náš server, `server/` je Cloudflare Worker pro Autokuk API.
+- `src/lib/vehicleApi.ts` volá náš server, `server/` je Cloudflare Worker pro Autokuk API. Bez `EXPO_PUBLIC_API_URL` v `.env` se server nevolá vůbec.
 - Balíčky instalujte přes `npx expo install <balíček>`, aby seděly k verzi Expa.

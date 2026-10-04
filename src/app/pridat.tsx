@@ -4,9 +4,11 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
+import { VIN_HELP, VinField } from '@/components/VinField';
 import { BackHeader, Body, ChoiceGroup, GlassCard, PrimaryButton, SectionLabel } from '@/components/ui';
 import { normalizeSpz, useCars } from '@/lib/cars';
 import type { VehicleType } from '@/lib/types';
+import { isValidVin } from '@/lib/vin';
 import { colors, fonts } from '@/theme';
 
 const TYPES: { value: VehicleType; label: string; sub: string }[] = [
@@ -29,13 +31,15 @@ export default function AddCar() {
   const { addCar, canAddCar } = useCars();
   const [spz, setSpz] = useState('');
   const [type, setType] = useState<VehicleType>('osobni');
+  const [vin, setVin] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const compact = normalizeSpz(spz).replace(/ /g, '');
-  const valid = /^[0-9A-Z]{5,8}$/.test(compact);
+  const vinOk = !vin || isValidVin(vin);
+  const valid = /^[0-9A-Z]{5,8}$/.test(compact) && vinOk;
 
   const submit = () => {
-    const result = addCar({ spz, type });
+    const result = addCar({ spz, type, ...(vin ? { vin } : {}) });
     if (!result.ok) {
       if (result.reason === 'limit') router.push('/premium');
       else setError('Tohle auto už hlídáme.');
@@ -79,6 +83,12 @@ export default function AddCar() {
         <ChoiceGroup options={TYPES} value={type} onChange={setType} />
       </View>
 
+      <View style={{ gap: 8 }}>
+        <SectionLabel>VIN (nepovinné)</SectionLabel>
+        <VinField value={vin} onChange={setVin} />
+        <Text style={styles.help}>{VIN_HELP} Když ho nezadáte, zkusíme ho najít sami.</Text>
+      </View>
+
       <GlassCard>
         <SectionLabel>Co ověříme</SectionLabel>
         <Check>Dálniční známku podle SPZ</Check>
@@ -113,5 +123,6 @@ const styles = StyleSheet.create({
   error: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.alert },
   check: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
+  help: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted },
   note: { textAlign: 'center', fontFamily: fonts.body, fontSize: 12, color: colors.muted },
 });

@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { DEADLINE_ICON, deadlineLook } from '@/components/deadlineUi';
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
+import { VinEditor } from '@/components/VinField';
 import { AdBanner, Body, ChoiceGroup, GlassCard, IconButton, Plate, PrimaryButton, SecondaryButton, SectionLabel, StatusRow, Title } from '@/components/ui';
 import { useCars } from '@/lib/cars';
 import { carDeadlines, okCount } from '@/lib/dates';
@@ -29,17 +30,19 @@ function Ring({ value, total }: { value: number; total: number }) {
     <View style={styles.ring}>
       <Svg width={78} height={78} style={StyleSheet.absoluteFill}>
         <Circle cx={39} cy={39} r={r} stroke="rgba(140,170,220,0.18)" strokeWidth={7} fill="none" />
-        <Circle
-          cx={39}
-          cy={39}
-          r={r}
-          stroke={colors.accent}
-          strokeWidth={7}
-          fill="none"
-          strokeDasharray={`${(c * value) / total} ${c}`}
-          strokeLinecap="round"
-          transform="rotate(-90 39 39)"
-        />
+        {value > 0 && (
+          <Circle
+            cx={39}
+            cy={39}
+            r={r}
+            stroke={colors.accent}
+            strokeWidth={7}
+            fill="none"
+            strokeDasharray={`${(c * value) / total} ${c}`}
+            strokeLinecap="round"
+            transform="rotate(-90 39 39)"
+          />
+        )}
       </Svg>
       <Text style={styles.ringValue}>
         {value}/{total}
@@ -50,8 +53,9 @@ function Ring({ value, total }: { value: number; total: number }) {
 }
 
 export default function Home() {
-  const { ready, cars, premium } = useCars();
+  const { ready, cars, premium, updateCar } = useCars();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [vinFor, setVinFor] = useState<string | null>(null);
   if (!ready) return <Screen tab>{null}</Screen>;
 
   if (cars.length === 0) {
@@ -94,9 +98,42 @@ export default function Home() {
           <Plate spz={car.spz} />
           {car.name ? <Text style={styles.carName}>{car.name}</Text> : null}
           <Text style={styles.small}>{okCount(car)} ze 3 věcí v pořádku</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={car.vin ? `VIN ${car.vin}, upravit` : 'Doplnit VIN'}
+            onPress={() => setVinFor(vinFor === car.id ? null : car.id)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.vin, pressed && { opacity: 0.7 }]}
+          >
+            {car.vin ? (
+              <>
+                <Text style={styles.vinLabel}>VIN</Text>
+                <Text style={styles.vinValue} numberOfLines={1}>
+                  {car.vin}
+                </Text>
+                <Icon name="chevron" size={14} color={colors.faint} strokeWidth={2.2} />
+              </>
+            ) : (
+              <>
+                <Icon name="plus" size={14} color={colors.accent} strokeWidth={2.4} />
+                <Text style={styles.vinAdd}>Doplnit VIN</Text>
+              </>
+            )}
+          </Pressable>
         </View>
         <Ring value={okCount(car)} total={3} />
       </GlassCard>
+
+      {vinFor === car.id && (
+        <VinEditor
+          initial={car.vin}
+          onCancel={() => setVinFor(null)}
+          onSave={(vin) => {
+            updateCar(car.id, { vin }, { reschedule: false });
+            setVinFor(null);
+          }}
+        />
+      )}
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Hlídáme za vás</SectionLabel>
@@ -144,6 +181,10 @@ const styles = StyleSheet.create({
   carCard: { flexDirection: 'row', alignItems: 'center' },
   carName: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.text },
   small: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },
+  vin: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  vinLabel: { fontFamily: fonts.bodyHeavy, fontSize: 11, letterSpacing: 1, color: colors.faint },
+  vinValue: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 13, letterSpacing: 0.8, color: colors.text },
+  vinAdd: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.accent },
   ring: { width: 78, height: 78, alignItems: 'center', justifyContent: 'center' },
   ringValue: { fontFamily: fonts.display, fontSize: 17, color: colors.text },
   ringLabel: { fontFamily: fonts.body, fontSize: 9, color: colors.muted },

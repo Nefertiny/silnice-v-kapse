@@ -8,7 +8,7 @@ import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
 import { BackHeader, Body, GlassCard, IconButton, Plate, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { useCars } from '@/lib/cars';
-import { carDeadlines } from '@/lib/dates';
+import { carDeadlines, daysUntil } from '@/lib/dates';
 import { HiddenLookup, type HiddenLookupHandle } from '@/lib/lookup/HiddenLookup';
 import { parseLookup, type LookupOutcome } from '@/lib/lookup/parse';
 import { SOURCES, type LookupEvent } from '@/lib/lookup/sources';
@@ -37,6 +37,10 @@ const FIELD: Record<DeadlineKind, 'vignetteUntil' | 'stkUntil' | 'insuranceUntil
 /** Na první odpověď webu čekáme nejdéle tak dlouho, pak to vzdáme a nabídneme ruční zadání. */
 const STEP_TIMEOUT_MS = 25000;
 
+function stkValid(car: Partial<Car>): boolean {
+  return !!car.stkUntil && daysUntil(car.stkUntil) >= 0;
+}
+
 function initialQueue(car?: Car): StepId[] {
   if (!car) return [];
   const q: StepId[] = [];
@@ -45,6 +49,8 @@ function initialQueue(car?: Car): StepId[] {
     if (car.type !== 'motorka') q.push('edalnice');
     q.push('overeniauta');
   }
+  // VIN od uživatele: STK zkusíme i podle něj. Když ji najde dřívější krok, tenhle vyřadíme.
+  if (car.vin && !stkValid(car)) q.push('tachometr');
   q.push('ckp');
   return q;
 }
@@ -64,8 +70,11 @@ function patchFrom(outcome: LookupOutcome): Partial<Car> | null {
   }
 }
 
-function clean(patch: Partial<Car>): Partial<Car> {
-  return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<Car>;
+/** Zahodí prázdné hodnoty a nepřepíše VIN, který už u auta je (třeba zadaný uživatelem). */
+function clean(patch: Partial<Car>, current: Car): Partial<Car> {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([k, v]) => v !== undefined && !(k === 'vin' && current.vin)),
+  ) as Partial<Car>;
 }
 
 export default function Verify() {
@@ -100,8 +109,14 @@ export default function Verify() {
     setCode('');
   }, []);
 
-  const insertAfterCurrent = useCallback(
-    (steps: StepId[]) => setQueue((q) => [...q.slice(0, index + 1), ...steps.filter((s) => !q.includes(s)), ...q.slice(index + 1)]),
+  /** Za aktuální krok vloží nové kroky a z dalších vyřadí ty, které už nejsou potřeba. */
+  const planAfterCurrent = useCallback(
+    (insert: StepId[], drop: StepId[] = []) =>
+      setQueue((q) => [
+        ...q.slice(0, index + 1),
+        ...insert.filter((s) => !q.includes(s)),
+        ...q.slice(index + 1).filter((s) => !drop.includes(s)),
+      ]),
     [index],
   );
 
@@ -112,19 +127,19 @@ export default function Verify() {
     const current = carRef.current;
     fetchVehicle(current.spz.replace(/ /g, '')).then((info) => {
       if (cancelled) return;
-      const patch = info ? clean({ ...info }) : {};
+      const patch = info ? clean({ ...info }, current) : {};
       if (Object.keys(patch).length) updateCar(current.id, patch, { reschedule: false });
       const merged = { ...current, ...patch };
       const fallbacks: StepId[] = [];
       if (!merged.vignetteUntil && !merged.vignetteExempt && merged.type !== 'motorka') fallbacks.push('edalnice');
       if (!merged.stkUntil) fallbacks.push('overeniauta');
-      insertAfterCurrent(fallbacks);
+      planAfterCurrent(fallbacks, stkValid(merged) ? ['tachometr'] : []);
       next();
     });
     return () => {
       cancelled = true;
     };
-  }, [step, updateCar, insertAfterCurrent, next]);
+  }, [step, updateCar, planAfterCurrent, next]);
 
   // Když web dlouho mlčí, krok přeskočíme.
   useEffect(() => {
@@ -145,9 +160,11 @@ export default function Verify() {
       return;
     }
     const patch = patchFrom(outcome);
-    if (patch) updateCar(current.id, clean(patch), { reschedule: false });
-    const merged = { ...current, ...(patch ?? {}) };
-    if (step === 'overeniauta' && !merged.stkUntil && merged.vin) insertAfterCurrent(['tachometr']);
+    const cleaned = patch ? clean(patch, current) : {};
+    if (Object.keys(cleaned).length) updateCar(current.id, cleaned, { reschedule: false });
+    const merged = { ...current, ...cleaned };
+    if (stkValid(merged)) planAfterCurrent([], ['tachometr']);
+    else if (step === 'overeniauta' && merged.vin) planAfterCurrent(['tachometr']);
     const covered = STEP_COVERS[step].filter((k) => !merged[FIELD[k]] && !(k === 'vignette' && merged.vignetteExempt));
     setNote(null);
     next(covered);
@@ -328,7 +345,8 @@ export default function Verify() {
       )}
 
       <Text style={styles.footnote}>
-        Údaje ověřujete sami ze svého telefonu na oficiálních webech (eDálnice, ČKP, ministerstvo dopravy) a u služby Autokuk.cz.
+        Údaje ověřujete sami ze svého telefonu na webech eDálnice, ČKP, overeniauta.cz a ministerstva dopravy
+        {vehicleApiConfigured() ? ' a u služby Autokuk.cz.' : '.'}
       </Text>
     </Screen>
   );
