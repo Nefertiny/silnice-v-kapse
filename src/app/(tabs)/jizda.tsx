@@ -3,12 +3,14 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
+import { MapyCredit } from '@/components/MapyCredit';
 import { Screen } from '@/components/Screen';
 import { ChoiceGroup, GlassCard, IconButton, PrimaryButton, SectionLabel, Title } from '@/components/ui';
+import { useRoutePlan } from '@/lib/route/useRoutePlan';
 import { bestSlot, departureSlots, fmtDuration, worstSlot, WHEN_OPTIONS, type When } from '@/lib/trips';
 import { colors, fonts } from '@/theme';
 
-// Doba jízdy bez provozu. Až bude napojené plánování tras, spočítá se z mapy.
+// Ukázková doba jízdy bez provozu, když se trasa z Mapy.com nenačte.
 const SAMPLE_BASE_MINUTES = 112;
 
 export default function Trip() {
@@ -16,7 +18,10 @@ export default function Trip() {
   const [to, setTo] = useState('Brno');
   const [when, setWhen] = useState<When>('sobota');
 
-  const slots = useMemo(() => departureSlots(when, SAMPLE_BASE_MINUTES), [when]);
+  const plan = useRoutePlan(from, to, 900);
+  const route = plan.status === 'ready' ? plan.route : undefined;
+  const base = route?.minutes ?? SAMPLE_BASE_MINUTES;
+  const slots = useMemo(() => departureSlots(when, base), [when, base]);
   const best = bestSlot(slots);
   const worst = worstSlot(slots);
   const max = worst.travel;
@@ -51,6 +56,16 @@ export default function Trip() {
           </View>
         </View>
       </GlassCard>
+      {route ? (
+        <View style={styles.routeInfo}>
+          <Text style={styles.small}>
+            {route.lengthKm} km · bez provozu {fmtDuration(route.minutes)}
+          </Text>
+          <MapyCredit />
+        </View>
+      ) : (
+        <Text style={styles.small}>{plan.status === 'loading' ? 'Hledám trasu…' : plan.status === 'error' ? plan.message : 'Ukázková trasa, mapy zatím nejsou zapnuté.'}</Text>
+      )}
 
       <SectionLabel>Kdy pojedete?</SectionLabel>
       <ChoiceGroup columns={3} options={WHEN_OPTIONS} value={when} onChange={setWhen} />
@@ -86,7 +101,7 @@ export default function Trip() {
           })}
         </View>
         <PrimaryButton
-          label="Zobrazit trasu a objížďky"
+          label="Zobrazit trasu"
           onPress={() => router.push({ pathname: '/trasa', params: { from, to, depart: best.label, travel: String(best.travel) } })}
         />
       </GlassCard>
@@ -98,7 +113,8 @@ export default function Trip() {
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={styles.aiTitle}>AI rádce</Text>
           <Text style={styles.aiText}>
-            Vyražte v {best.label}, ušetříte proti nejhoršímu času asi {worst.travel - best.travel} minut. Ukázkový výpočet: napojení na dopravní data ŘSD a mapy přijde v další verzi.
+            Vyražte v {best.label}, ušetříte proti nejhoršímu času asi {worst.travel - best.travel} minut.{' '}
+            {route ? 'Délku trasy známe z Mapy.com, zdržení ve špičkách zatím odhadujeme.' : 'Ukázkový výpočet, trasa se zatím nenačetla.'}
           </Text>
         </View>
       </GlassCard>
@@ -112,6 +128,7 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.muted },
   input: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.text, paddingVertical: 2 },
   divider: { height: 1, backgroundColor: 'rgba(140,170,220,0.14)', marginLeft: 22 },
+  routeInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
   resultTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   bigTime: { fontFamily: fonts.display, fontSize: 38, color: colors.accent },
   duration: { fontFamily: fonts.bodyHeavy, fontSize: 15, color: colors.text },
