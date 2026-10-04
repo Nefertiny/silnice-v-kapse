@@ -1,0 +1,7 @@
+name = "silnice-v-kapse-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Klíč se nastavuje jako tajná hodnota, nikdy ho nepište sem:
+#   npx wrangler secret put AUTOKUK_API_KEY
+#   npx wrangler secret put APP_TOKEN   (volitelné)
