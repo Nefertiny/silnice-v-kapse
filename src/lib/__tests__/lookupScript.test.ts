@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { buildLookupScript, SOURCES } from '../lookup/sources';
+import { buildLookupScript, POLICIE_BY_SPZ, SOURCES } from '../lookup/sources';
 
 // Zjednodušená kopie formuláře „Ověření platnosti“ z edalnice.gov.cz (stav 4. 10. 2026).
 const EDALNICE_FORM = `
@@ -95,3 +95,67 @@ describe('lookup script on eDálnice', () => {
     expect(results[0].text).toBe('Platná 1. 2. 2026 – 31. 1. 2027');
   });
 });
+
+// Zjednodušená kopie formuláře z policie.gov.cz/patrani-vozidla (stav 4. 10. 2026).
+const POLICIE_FORM = `
+  <h1>Pátrání po odcizených vozidlech</h1>
+  <form>
+    <label for="InputText-Spz">RZ</label><input id="InputText-Spz" name="Spz" value="">
+    <label for="InputText-Vin">VIN</label><input id="InputText-Vin" name="Vin" value="">
+    <button type="submit" disabled>Vyhledat</button>
+  </form>
+  <div id="vysledky"></div>
+  <div><iframe src="https://www.google.com/recaptcha/api2/bframe?k=x" style="visibility: hidden; height: 600px"></iframe></div>`;
+
+describe('lookup script on the police stolen-vehicle search', () => {
+  let messages: Msg[];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    messages = [];
+    document.body.innerHTML = POLICIE_FORM;
+    (window as unknown as { __sivk?: boolean }).__sivk = undefined;
+    sessionStorage.clear();
+    (window as unknown as { ReactNativeWebView: { postMessage: (m: string) => void } }).ReactNativeWebView = {
+      postMessage: (m) => messages.push(JSON.parse(m)),
+    };
+    const vin = document.querySelector<HTMLInputElement>('input[name="Vin"]')!;
+    const button = document.querySelector<HTMLButtonElement>('button')!;
+    // Tlačítko se na webu odemkne až po vyplnění pole.
+    vin.addEventListener('input', () => (button.disabled = !vin.value));
+    document.querySelector('form')!.addEventListener('submit', (e) => e.preventDefault());
+  });
+
+  afterEach(() => jest.useRealTimers());
+
+  it('searches by VIN, ignores the hidden reCAPTCHA and reports no result right away', () => {
+    const button = document.querySelector<HTMLButtonElement>('button')!;
+    button.addEventListener('click', () => {
+      const p = document.createElement('p');
+      p.textContent = 'Nebyly nalezeny žádné výsledky.';
+      document.getElementById('vysledky')!.appendChild(p);
+    });
+
+    run(buildLookupScript(SOURCES.policie, 'TMBJJ7NE5K0123456'));
+    expect(document.querySelector<HTMLInputElement>('input[name="Vin"]')!.value).toBe('TMBJJ7NE5K0123456');
+    expect(document.querySelector<HTMLInputElement>('input[name="Spz"]')!.value).toBe('');
+
+    jest.advanceTimersByTime(1200);
+    expect(messages.map((m) => m.type)).toEqual(['checking', 'result']);
+    expect(messages[1].text).toBe('Nebyly nalezeny žádné výsledky.');
+  });
+
+  it('shows the reCAPTCHA puzzle only when it is really visible', () => {
+    run(buildLookupScript(POLICIE_BY_SPZ, '4H72318'));
+    expect(document.querySelector<HTMLInputElement>('input[name="Spz"]')!.value).toBe('4H72318');
+    jest.advanceTimersByTime(1200);
+    expect(messages.map((m) => m.type)).toEqual(['checking']);
+
+    const frame = document.querySelector('iframe')!;
+    frame.style.visibility = 'visible';
+    frame.getBoundingClientRect = () => ({ height: 600 }) as DOMRect;
+    jest.advanceTimersByTime(600);
+    expect(messages.map((m) => m.type)).toEqual(['checking', 'captcha-widget']);
+  });
+});
+

@@ -15,6 +15,12 @@ export type LookupSource = {
   submitSelector?: string;
   /** Část stránky, kde se objeví výsledek. Bez ní čteme celou stránku. */
   resultSelector?: string;
+  /** Text, podle kterého poznáme hotový výsledek, když ho obecné hledání nepozná. */
+  donePattern?: string;
+  /** Ochrana proti robotům, kterou ukážeme jen tehdy, když je opravdu vidět (neviditelná reCAPTCHA). */
+  widgetSelector?: string;
+  /** Tlačítko pro jiný obrázek s kódem, když nemá text. */
+  refreshSelector?: string;
 };
 
 // Skript níže hledá políčka podle selektorů a popisků, takže drobné změny webů přežije.
@@ -47,7 +53,34 @@ export const SOURCES: Record<LookupSourceId, LookupSource> = {
     url: 'https://www.kontrolatachometru.cz/',
     query: 'vin',
     inputHints: ['vin'],
+    // Stav 4. 10. 2026: pole #VIN, kód z obrázku #captcha_TB_I, tlačítko #btnSubmit, výsledky v #inspectionTable.
+    inputSelector: '#VIN',
+    submitSelector: '#btnSubmit',
+    refreshSelector: '#captcha_RIMG',
+    // Špatný kód hlásí web anglicky.
+    donePattern: 'incorrect',
   },
+  policie: {
+    id: 'policie',
+    label: 'Kradené auto',
+    provider: 'Policie ČR (pátrání po vozidlech)',
+    // Stav 4. 10. 2026: pole Spz a Vin, tlačítko Vyhledat, neviditelná reCAPTCHA.
+    url: 'https://policie.gov.cz/patrani-vozidla',
+    query: 'vin',
+    inputHints: ['vin'],
+    inputSelector: 'input[name="Vin"]',
+    submitSelector: 'form button[type="submit"]',
+    donePattern: 'nebyly nalezeny|otevřít detail|detail odcizen',
+    widgetSelector: 'iframe[src*="recaptcha"][src*="bframe"]',
+  },
+};
+
+/** Policie hledá i podle SPZ, když VIN nemáme. */
+export const POLICIE_BY_SPZ: LookupSource = {
+  ...SOURCES.policie,
+  query: 'spz',
+  inputHints: ['spz'],
+  inputSelector: 'input[name="Spz"]',
 };
 
 export type LookupEvent =
@@ -72,6 +105,9 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     inputSelector: source.inputSelector ?? null,
     submitSelector: source.submitSelector ?? null,
     resultSelector: source.resultSelector ?? null,
+    done: source.donePattern ?? null,
+    widgetSelector: source.widgetSelector ?? null,
+    refreshSelector: source.refreshSelector ?? null,
   });
   return `(function () {
   if (window.__sivk) return;
@@ -118,6 +154,10 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     return null;
   }
   function hasWidget() {
+    if (CFG.widgetSelector) {
+      var w = document.querySelector(CFG.widgetSelector);
+      return !!w && getComputedStyle(w).visibility !== 'hidden' && w.getBoundingClientRect().height > 50;
+    }
     return !!document.querySelector('iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],iframe[src*="challenges.cloudflare.com"],.g-recaptcha,.h-captcha,.cf-turnstile');
   }
   // Výsledek hledáme v dané části stránky a v dialozích nebo hláškách, které se mohou otevřít mimo ni.
@@ -183,7 +223,7 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     var n = 0;
     (function wait() {
       var fresh = newLines(resultText(), before);
-      if (/\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|nejsou platn|osvoboz|chybn|nesprávn|nemá pro dnešní den|vyrazit na cestu|ověřit další|nepodařilo|selhalo/i.test(fresh)) {
+      if (/\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|nejsou platn|osvoboz|chybn|nesprávn|nemá pro dnešní den|vyrazit na cestu|ověřit další|nepodařilo|selhalo/i.test(fresh) || (CFG.done && new RegExp(CFG.done, 'i').test(fresh))) {
         return report(fresh);
       }
       // Ochrana proti robotům (např. Cloudflare Turnstile) se může ukázat až po odeslání.
@@ -206,8 +246,10 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     watchResult(before);
   };
   window.__sivkRefresh = function () {
+    var exact = CFG.refreshSelector ? document.querySelector(CFG.refreshSelector) : null;
+    if (exact) exact.click();
     var all = document.querySelectorAll('a,button');
-    for (var i = 0; i < all.length; i++) {
+    for (var i = 0; !exact && i < all.length; i++) {
       if (/jiný obrázek|jiny obrazek|obnovit|nový kód/i.test(all[i].textContent || '')) { all[i].click(); break; }
     }
     setTimeout(function () { var img = captchaImage(); if (img) sendImage(img); }, 900);

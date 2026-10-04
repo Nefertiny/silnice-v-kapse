@@ -9,7 +9,8 @@ export type LookupOutcome =
   | { kind: 'vehicle'; vin?: string; stkUntil?: string }
   | { kind: 'unknown' };
 
-const WRONG_CODE = /nesprávn[ýě] kód|chybn[ýě] kód|kód (z obrázku )?(je )?(chybn|nesprávn|neplatn)|opište (kód )?znovu/i;
+// Kontrola tachometru hlásí špatný kód anglicky: „The submitted code is incorrect“.
+const WRONG_CODE = /nesprávn[ýě] kód|chybn[ýě] kód|kód (z obrázku )?(je )?(chybn|nesprávn|neplatn)|opište (kód )?znovu|code is incorrect/i;
 const NOT_FOUND = /nebyl[ao]? nalezen|nenalezen|neexistuje|není pojištěn|žádn[ýáé] záznam/i;
 
 function latest(dates: string[]): string | undefined {

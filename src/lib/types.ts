@@ -21,4 +21,4 @@ export type Car = {
 
 export type DeadlineKind = 'vignette' | 'stk' | 'insurance';
 
-export type LookupSourceId = 'edalnice' | 'tachometr' | 'overeniauta';
+export type LookupSourceId = 'edalnice' | 'tachometr' | 'overeniauta' | 'policie';
