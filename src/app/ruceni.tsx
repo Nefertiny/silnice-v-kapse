@@ -1,7 +1,8 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { InsuranceEditor } from '@/components/InsuranceEditor';
 import { Screen } from '@/components/Screen';
 import { BackHeader, Body, GlassCard, Pill, PrimaryButton, SecondaryButton, SectionLabel } from '@/components/ui';
 import { useCars } from '@/lib/cars';
@@ -14,8 +15,9 @@ const SAMPLE_CURRENT_PRICE = 4860;
 
 export default function Insurance() {
   const { carId } = useLocalSearchParams<{ carId?: string }>();
-  const { cars, getCar } = useCars();
+  const { cars, getCar, updateCar } = useCars();
   const car = getCar(carId) ?? cars[0];
+  const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<OfferKind>('cena');
   const [sent, setSent] = useState(false);
   const offers = sampleOffers(SAMPLE_CURRENT_PRICE);
@@ -41,10 +43,20 @@ export default function Insurance() {
         {car?.insuranceUntil && <Pill label={daysLabel(daysUntil(car.insuranceUntil))} tone="warn" />}
       </GlassCard>
 
-      {car && !car.insuranceUntil && (
+      {car && editing && (
+        <InsuranceEditor
+          car={car}
+          onCancel={() => setEditing(false)}
+          onSave={(patch) => {
+            updateCar(car.id, patch);
+            setEditing(false);
+          }}
+        />
+      )}
+      {car && !editing && (
         <SecondaryButton
-          label="Doplnit pojišťovnu a výročí"
-          onPress={() => router.push({ pathname: '/overeni', params: { carId: car.id } })}
+          label={car.insuranceUntil ? 'Upravit pojišťovnu a výročí' : 'Doplnit pojišťovnu a výročí'}
+          onPress={() => setEditing(true)}
         />
       )}
 

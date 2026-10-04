@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { DateStepper } from '@/components/DateStepper';
+import { InsuranceEditor } from '@/components/InsuranceEditor';
 import { deadlineLook } from '@/components/deadlineUi';
 import { Icon } from '@/components/Icon';
 import { Screen } from '@/components/Screen';
@@ -25,7 +26,6 @@ const STEP_COVERS: Record<StepId, DeadlineKind[]> = {
   edalnice: ['vignette'],
   overeniauta: ['stk'],
   tachometr: ['stk'],
-  ckp: ['insurance'],
 };
 
 const FIELD: Record<DeadlineKind, 'vignetteUntil' | 'stkUntil' | 'insuranceUntil'> = {
@@ -51,7 +51,7 @@ function initialQueue(car?: Car): StepId[] {
   }
   // VIN od uživatele: STK zkusíme i podle něj. Když ji najde dřívější krok, tenhle vyřadíme.
   if (car.vin && !stkValid(car)) q.push('tachometr');
-  q.push('ckp');
+  // Povinné ručení se automaticky nezjišťuje (ČKP je jen pro poškozené), klient ho zadá sám.
   return q;
 }
 
@@ -59,8 +59,6 @@ function patchFrom(outcome: LookupOutcome): Partial<Car> | null {
   switch (outcome.kind) {
     case 'vignette':
       return outcome.exempt ? { vignetteExempt: true } : outcome.until ? { vignetteUntil: outcome.until } : null;
-    case 'insurance':
-      return { insurer: outcome.insurer, insuranceUntil: outcome.until };
     case 'stk':
       return { stkUntil: outcome.estimatedUntil };
     case 'vehicle':
@@ -226,9 +224,11 @@ export default function Verify() {
             ? look.subtitle
             : running
               ? `Ověřujeme · ${source?.provider ?? 'registr vozidel'}`
-              : failed.includes(d.kind) || finished
-                ? 'Nepodařilo se zjistit, zadejte ručně'
-                : 'Čeká na ověření';
+              : d.kind === 'insurance'
+                ? 'Zadejte pojišťovnu a výročí ze smlouvy'
+                : failed.includes(d.kind) || finished
+                  ? 'Nepodařilo se zjistit, zadejte ručně'
+                  : 'Čeká na ověření';
           return (
             <View key={d.kind} style={[styles.row, i > 0 && styles.divider]}>
               <View style={styles.status}>
@@ -258,9 +258,20 @@ export default function Verify() {
         })}
       </GlassCard>
 
-      {editing && (
+      {editing === 'insurance' && (
+        <InsuranceEditor
+          car={car}
+          onCancel={() => setEditing(null)}
+          onSave={(patch) => {
+            updateCar(car.id, patch, { reschedule: false });
+            setEditing(null);
+          }}
+        />
+      )}
+
+      {editing && editing !== 'insurance' && (
         <DateStepper
-          title={editing === 'vignette' ? 'Dálniční známka platí do' : editing === 'stk' ? 'STK platí do' : 'Výročí povinného ručení'}
+          title={editing === 'vignette' ? 'Dálniční známka platí do' : 'STK platí do'}
           initial={car[FIELD[editing]]}
           onCancel={() => setEditing(null)}
           onSave={(iso) => {
@@ -345,7 +356,7 @@ export default function Verify() {
       )}
 
       <Text style={styles.footnote}>
-        Údaje ověřujete sami ze svého telefonu na webech eDálnice, ČKP, overeniauta.cz a ministerstva dopravy
+        Údaje ověřujete sami ze svého telefonu na webech eDálnice, overeniauta.cz a ministerstva dopravy
         {vehicleApiConfigured() ? ' a u služby Autokuk.cz.' : '.'}
       </Text>
     </Screen>

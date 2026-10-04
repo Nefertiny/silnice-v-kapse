@@ -37,8 +37,10 @@ Rychlý náhled v prohlížeči spustíte příkazem `npx expo start --web`. Ov�
 
 Appka zatím nepoužívá žádnou placenou službu. Zkouší zdroje v tomto pořadí a co nenajde, zkusí v dalším:
 
-1. **Oficiální weby přímo v telefonu.** Appka otevře na pozadí eDálnici (dálniční známka), overeniauta.cz (VIN a STK), kontrolatachometru.cz (STK podle VIN) a ČKP (pojišťovna a výročí povinného ručení). Vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku, appka ho ukáže ve svém vzhledu a klient ho opíše sám.
+1. **Oficiální weby přímo v telefonu.** Appka otevře na pozadí eDálnici (dálniční známka, edalnice.gov.cz), overeniauta.cz (VIN a STK) a kontrolatachometru.cz (STK podle VIN). Vyplní SPZ nebo VIN a výsledek přečte. Klient ty stránky nevidí. Když web chce opsat kód z obrázku nebo potvrdit „nejsem robot“, appka mu to ukáže a klient to udělá sám.
 2. **Ruční zadání.** Co se nepodaří zjistit, klient zadá tlačítky (den, měsíc, rok).
+
+**Povinné ručení** appka sama nezjišťuje. Vyhledávání pojistitele u ČKP je určené jen poškozeným po dopravní nehodě (formulář chce čestné prohlášení) a ukazuje jen pojišťovnu, ne konec smlouvy. Klient proto vybere pojišťovnu tlačítkem a zadá výročí ze smlouvy nebo zelené karty. Appka pak výročí hlídá každý rok.
 
 VIN může klient zadat sám při přidání auta nebo později na domovské stránce. Zadaný VIN appka nikdy nepřepíše a použije ho k ověření STK na kontrolatachometru.cz, když ji jiné zdroje nenajdou.
 
@@ -68,7 +70,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 | Ověření z oficiálních webů v telefonu | Hotové, ale adresy a formuláře je nutné vyzkoušet na skutečném telefonu |
 | Zadání VIN při přidání auta a na domovské stránce | Funguje |
 | Zjištění údajů přes Autokuk API | Připravené, ale vypnuté (placený tarif) |
-| Ruční zadání dat | Funguje |
+| Ruční zadání dat, pojišťovna a výročí ručení tlačítky | Funguje |
 | Ceny povinného ručení a tři nabídky | Ukázková data, chybí partner (pojišťovna nebo srovnávač) |
 | Nejlepší čas odjezdu | Ukázkový výpočet podle typické dopravní špičky |
 | Trasa, uzavírky, objížďky | Ukázka, chybí napojení na dopravní data a mapy |
@@ -78,7 +80,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 
 ## Co je potřeba udělat před spuštěním
 
-- **Data o autě.** Vyzkoušet eDálnici, ČKP, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
+- **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz a kontrolatachometru.cz na skutečném telefonu a ověřit jejich podmínky použití. Autokuk API jde zapnout později, až se appka uživí.
 - **Povinné ručení.** Zprostředkovat pojištění smí jen registrovaný subjekt u ČNB. Nejjednodušší je partnerský (affiliate) program srovnávače nebo pojišťovny. Placenou nabídku partnera je nutné v appce označit jako reklamu, to už appka dělá.
 - **Doprava a mapy.** Napojit dopravní informace NDIC (DATEX II), plánování trasy (například Mapy.com API) a mapu nabíječek (Open Charge Map). Pak nahradit ukázkový výpočet odjezdu skutečným.
 - **Peníze.** Reklama přes Google AdMob, předplatné přes Google Play a App Store (vývojářský účet Google stojí jednorázově 25 USD, Apple 99 USD ročně).

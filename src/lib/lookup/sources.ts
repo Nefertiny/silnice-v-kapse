@@ -10,27 +10,27 @@ export type LookupSource = {
   query: 'spz' | 'vin';
   /** Kousky názvu/popisku pole, podle kterých najdeme políčko pro SPZ nebo VIN. */
   inputHints: string[];
+  /** Přesné CSS selektory, když je známe. Mají přednost před hledáním podle popisků. */
+  inputSelector?: string;
+  submitSelector?: string;
+  /** Část stránky, kde se objeví výsledek. Bez ní čteme celou stránku. */
+  resultSelector?: string;
 };
 
-// Adresy a podoba formulářů se musí doladit na skutečném telefonu: z vývojového
-// prostředí jsou weby eDálnice a ČKP nedostupné. Skript níže hledá políčka podle
-// popisků, takže drobné změny webů přežije, ale přesné cesty je potřeba ověřit.
+// Skript níže hledá políčka podle selektorů a popisků, takže drobné změny webů přežije.
+// Povinné ručení se tu nezjišťuje: vyhledávání ČKP je jen pro poškozené po nehodě.
 export const SOURCES: Record<LookupSourceId, LookupSource> = {
   edalnice: {
     id: 'edalnice',
     label: 'Dálniční známka',
     provider: 'eDálnice',
-    url: 'https://edalnice.cz/',
+    // Formulář „Ověření platnosti“ je na titulní stránce (stav k 4. 10. 2026, stát je předvyplněný CZ).
+    url: 'https://edalnice.gov.cz/cs#validity-section',
     query: 'spz',
-    inputHints: ['spz', 'rz', 'registra', 'licen', 'plate', 'značk'],
-  },
-  ckp: {
-    id: 'ckp',
-    label: 'Povinné ručení',
-    provider: 'ČKP',
-    url: 'https://www.ckp.cz/',
-    query: 'spz',
-    inputHints: ['spz', 'rz', 'registra', 'značk', 'vin'],
+    inputHints: ['spz', 'licen', 'plate', 'registra', 'značk'],
+    inputSelector: 'input[name="licensePlate"],[data-testid="form-licensePlate"]',
+    submitSelector: '[data-testid="btn-validity-check-submit"]',
+    resultSelector: '#validity-section',
   },
   overeniauta: {
     id: 'overeniauta',
@@ -65,7 +65,14 @@ export type LookupEvent =
  * Nic neobchází: kód vždy opisuje člověk.
  */
 export function buildLookupScript(source: LookupSource, value: string): string {
-  const cfg = JSON.stringify({ hints: source.inputHints, value, id: source.id });
+  const cfg = JSON.stringify({
+    hints: source.inputHints,
+    value,
+    id: source.id,
+    inputSelector: source.inputSelector ?? null,
+    submitSelector: source.submitSelector ?? null,
+    resultSelector: source.resultSelector ?? null,
+  });
   return `(function () {
   if (window.__sivk) return;
   window.__sivk = true;
@@ -89,6 +96,10 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     });
   }
   function queryInput() {
+    if (CFG.inputSelector) {
+      var exact = document.querySelector(CFG.inputSelector);
+      if (exact) return exact;
+    }
     var list = inputs();
     for (var i = 0; i < list.length; i++) if (has(list[i], CFG.hints) && !has(list[i], CAPTCHA_HINTS)) return list[i];
     return null;
@@ -107,7 +118,16 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     return null;
   }
   function hasWidget() {
-    return !!document.querySelector('iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],.g-recaptcha,.h-captcha,.cf-turnstile');
+    return !!document.querySelector('iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],iframe[src*="challenges.cloudflare.com"],.g-recaptcha,.h-captcha,.cf-turnstile');
+  }
+  // Výsledek hledáme v dané části stránky a v dialozích nebo hláškách, které se mohou otevřít mimo ni.
+  function resultText() {
+    var box = CFG.resultSelector ? document.querySelector(CFG.resultSelector) : null;
+    if (!box) return document.body ? document.body.innerText : '';
+    var parts = [box.innerText];
+    var extra = document.querySelectorAll('[role="dialog"],[role="alertdialog"],[role="alert"],[aria-live]');
+    for (var i = 0; i < extra.length; i++) if (!box.contains(extra[i])) parts.push(extra[i].innerText);
+    return parts.join('\\n');
   }
   function setValue(el, v) {
     var desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
@@ -116,6 +136,10 @@ export function buildLookupScript(source: LookupSource, value: string): string {
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
   function submitButton(form) {
+    if (CFG.submitSelector) {
+      var exact = document.querySelector(CFG.submitSelector);
+      if (exact) return exact;
+    }
     var scope = form || document;
     var b = scope.querySelector('button[type="submit"],input[type="submit"]');
     if (b) return b;
@@ -136,20 +160,37 @@ export function buildLookupScript(source: LookupSource, value: string): string {
       post({ type: 'captcha-image', image: img.src });
     }
   }
+  var widgetShown = false;
+  var watching = false;
+  var reported = false;
+  function report(text) {
+    if (reported) return;
+    reported = true;
+    post({ type: 'result', text: text.slice(0, 6000) });
+  }
+  // Hlídá jen jedna smyčka a výsledek se pošle jen jednou, i když člověk potvrdí kontrolu víckrát.
   function watchResult(before) {
+    if (watching) return;
+    watching = true;
     var n = 0;
     (function wait() {
-      var text = document.body ? document.body.innerText : '';
+      var text = resultText();
       var changed = before === null || text !== before;
-      if (changed && /\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|osvoboz|chybn|nesprávn/i.test(text)) {
-        return post({ type: 'result', text: text.slice(0, 6000) });
+      if (changed && /\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|nenalezen|neplatn|nejsou platn|osvoboz|chybn|nesprávn/i.test(text)) {
+        return report(text);
       }
-      if (++n < 30) setTimeout(wait, 500); else post({ type: 'result', text: text.slice(0, 6000) });
+      // Ochrana proti robotům (např. Cloudflare Turnstile) se může ukázat až po odeslání.
+      // Pak ji ukážeme člověku a čekáme déle, než ji potvrdí.
+      if (!widgetShown && hasWidget()) {
+        widgetShown = true;
+        post({ type: 'captcha-widget' });
+      }
+      if (++n < (widgetShown ? 240 : 30)) setTimeout(wait, 500); else report(text);
     })();
   }
   var field = null;
   window.__sivkSubmit = function (code) {
-    var before = document.body ? document.body.innerText : '';
+    var before = resultText();
     if (code) { var ci = captchaInput(); if (ci) setValue(ci, code); }
     try { sessionStorage.setItem(PHASE_KEY, 'submitted'); } catch (e) {}
     var btn = submitButton(field && field.form);

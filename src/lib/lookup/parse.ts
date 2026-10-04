@@ -5,7 +5,6 @@ export type LookupOutcome =
   | { kind: 'wrong-code' }
   | { kind: 'not-found' }
   | { kind: 'vignette'; until?: string; exempt: boolean; valid: boolean }
-  | { kind: 'insurance'; insurer?: string; until?: string }
   | { kind: 'stk'; lastInspection: string; estimatedUntil: string }
   | { kind: 'vehicle'; vin?: string; stkUntil?: string }
   | { kind: 'unknown' };
@@ -23,24 +22,6 @@ function addYears(iso: string, years: number): string {
   return toIsoDate(d);
 }
 
-/** Nejbližší výročí smlouvy ode dneška (včetně). */
-export function nextAnniversary(fromIso: string, today: Date = new Date()): string {
-  let candidate = fromIso;
-  while (daysUntil(candidate, today) < 0) candidate = addYears(candidate, 1);
-  return candidate;
-}
-
-function findInsurer(text: string): string | undefined {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const labelIdx = lines.findIndex((l) => /^pojistitel|^pojišťovna\s*:/i.test(l));
-  if (labelIdx >= 0) {
-    const sameLine = lines[labelIdx].split(':').slice(1).join(':').trim();
-    if (sameLine) return sameLine;
-    if (lines[labelIdx + 1]) return lines[labelIdx + 1];
-  }
-  return lines.find((l) => /pojišťovna/i.test(l) && l.length < 90 && !/ověř|vyhled/i.test(l));
-}
-
 export function parseLookup(source: LookupSourceId, text: string, today: Date = new Date()): LookupOutcome {
   if (WRONG_CODE.test(text)) return { kind: 'wrong-code' };
   const dates = findCzDates(text);
@@ -48,22 +29,8 @@ export function parseLookup(source: LookupSourceId, text: string, today: Date = 
   if (source === 'edalnice') {
     if (/osvobozen/i.test(text)) return { kind: 'vignette', exempt: true, valid: true };
     const until = latest(dates);
-    if (!until) return NOT_FOUND.test(text) || /nem[aá] platn|neplatn/i.test(text) ? { kind: 'vignette', exempt: false, valid: false } : { kind: 'unknown' };
+    if (!until) return NOT_FOUND.test(text) || /nem[aá] platn|neplatn|nejsou platn/i.test(text) ? { kind: 'vignette', exempt: false, valid: false } : { kind: 'unknown' };
     return { kind: 'vignette', until, exempt: false, valid: daysUntil(until, today) >= 0 };
-  }
-
-  if (source === 'ckp') {
-    if (NOT_FOUND.test(text)) return { kind: 'not-found' };
-    const insurer = findInsurer(text);
-    const explicitEnd = /(?:do|konec)\s*:?\s*(\d{1,2}\.\s?\d{1,2}\.\s?\d{4})/i.exec(text);
-    let until: string | undefined;
-    if (explicitEnd) until = findCzDates(explicitEnd[1])[0];
-    else {
-      const start = /od\s*:?\s*(\d{1,2}\.\s?\d{1,2}\.\s?\d{4})/i.exec(text);
-      if (start) until = nextAnniversary(findCzDates(start[1])[0], today);
-    }
-    if (!insurer && !until) return { kind: 'unknown' };
-    return { kind: 'insurance', insurer, until };
   }
 
   if (source === 'overeniauta') {

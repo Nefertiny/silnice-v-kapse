@@ -1,11 +1,12 @@
-import { nextAnniversary, parseLookup } from '../lookup/parse';
+import { nextAnniversary } from '../dates';
+import { parseLookup } from '../lookup/parse';
 
 const today = new Date(2026, 9, 4);
 
 // Texty jsou smyšlené ukázky. Skutečné výstupy webů je potřeba doplnit po prvním testu na telefonu.
 describe('parseLookup', () => {
   it('detects a wrong captcha code', () => {
-    expect(parseLookup('ckp', 'Zadaný kód je nesprávný, opište kód znovu.', today)).toEqual({ kind: 'wrong-code' });
+    expect(parseLookup('edalnice', 'Zadaný kód je nesprávný, opište kód znovu.', today)).toEqual({ kind: 'wrong-code' });
   });
 
   it('reads vignette validity', () => {
@@ -16,16 +17,11 @@ describe('parseLookup', () => {
       valid: true,
     });
     expect(parseLookup('edalnice', 'Vozidlo je od časového poplatku osvobozeno.', today)).toMatchObject({ exempt: true });
-  });
-
-  it('reads insurer and next anniversary from ČKP', () => {
-    const text = 'Výsledek\nPojistitel: Kooperativa pojišťovna, a.s.\nPojištěno od: 14. 11. 2023';
-    expect(parseLookup('ckp', text, today)).toEqual({
-      kind: 'insurance',
-      insurer: 'Kooperativa pojišťovna, a.s.',
-      until: '2026-11-14',
+    expect(parseLookup('edalnice', 'Ověření platnosti\nZadané údaje nejsou platné.', today)).toEqual({
+      kind: 'vignette',
+      exempt: false,
+      valid: false,
     });
-    expect(parseLookup('ckp', 'Vozidlo nebylo nalezeno.', today)).toEqual({ kind: 'not-found' });
   });
 
   it('estimates next STK from inspection history', () => {
@@ -49,5 +45,6 @@ describe('parseLookup', () => {
   it('computes the next anniversary', () => {
     expect(nextAnniversary('2023-11-14', today)).toBe('2026-11-14');
     expect(nextAnniversary('2023-02-01', today)).toBe('2027-02-01');
+    expect(nextAnniversary('2026-10-04', today)).toBe('2026-10-04');
   });
 });
