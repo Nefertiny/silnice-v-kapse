@@ -6,7 +6,8 @@ import { buildLookupScript, SOURCES } from '../lookup/sources';
 // Zjednodušená kopie formuláře „Ověření platnosti“ z edalnice.gov.cz (stav 4. 10. 2026).
 const EDALNICE_FORM = `
   <section id="validity-section">
-    <h2>Ověření platnosti</h2>
+    <h3>Ověření platnosti</h3>
+    <p>Stačí zadat SPZ vozidla a hned se dozvíte, zda máte platnou elektronickou dálniční známku či zda je Vaše vozidlo od úhrady osvobozeno.</p>
     <form>
       <div data-slot="form-item">
         <label for="country">Stát registrace vozidla</label>
@@ -31,11 +32,17 @@ describe('lookup script on eDálnice', () => {
   let messages: Msg[];
 
   beforeAll(() => {
-    // jsdom innerText nezná, pro test stačí textContent.
+    // jsdom innerText nezná. Stačí každý kousek textu na vlastním řádku, jako u bloků v prohlížeči.
     Object.defineProperty(HTMLElement.prototype, 'innerText', {
       configurable: true,
-      get() {
-        return this.textContent;
+      get(this: HTMLElement) {
+        const walker = document.createTreeWalker(this, NodeFilter.SHOW_TEXT);
+        const lines: string[] = [];
+        while (walker.nextNode()) {
+          const t = (walker.currentNode.textContent ?? '').trim();
+          if (t) lines.push(t);
+        }
+        return lines.join('\n');
       },
     });
   });
@@ -72,19 +79,19 @@ describe('lookup script on eDálnice', () => {
 
     jest.advanceTimersByTime(700);
     expect(clicks).toBe(1);
+    // Věta „…zda je Vaše vozidlo od úhrady osvobozeno“ je na stránce pořád a výsledek není.
+    jest.advanceTimersByTime(3000);
     expect(messages.map((m) => m.type)).toEqual(['checking', 'captcha-widget']);
 
     // Člověk potvrdí kontrolu a ťukne na „Hotovo, pokračovat“.
     (window as unknown as { __sivkSubmit: (code: string) => void }).__sivkSubmit('');
     const result = document.createElement('p');
-    result.textContent = 'Dálniční známka je platná do 31. 1. 2027';
+    result.textContent = 'Platná 1. 2. 2026 – 31. 1. 2027';
     document.getElementById('validity-section')!.appendChild(result);
     jest.advanceTimersByTime(2000);
 
     const results = messages.filter((m) => m.type === 'result');
     expect(results).toHaveLength(1);
-    expect(results[0].text).toContain('platná do 31. 1. 2027');
-    // Datum z patičky stránky se do výsledku nesmí dostat.
-    expect(results[0].text).not.toContain('1. 3. 2027');
+    expect(results[0].text).toBe('Platná 1. 2. 2026 – 31. 1. 2027');
   });
 });

@@ -27,10 +27,15 @@ export function parseLookup(source: LookupSourceId, text: string, today: Date = 
   const dates = findCzDates(text);
 
   if (source === 'edalnice') {
-    if (/osvobozen/i.test(text)) return { kind: 'vignette', exempt: true, valid: true };
+    // Hlášky webu (stav 4. 10. 2026): „Platná {od} – {do}“, „Toto vozidlo je osvobozeno od zpoplatnění.“,
+    // „Vozidlo nemá pro dnešní den zakoupenou dálniční známku.“ Obecné texty webu o osvobozených
+    // vozidlech ani „Vozidlo může být osvobozeno“ osvobození neznamenají.
     const until = latest(dates);
-    if (!until) return NOT_FOUND.test(text) || /nem[aá] platn|neplatn|nejsou platn/i.test(text) ? { kind: 'vignette', exempt: false, valid: false } : { kind: 'unknown' };
-    return { kind: 'vignette', until, exempt: false, valid: daysUntil(until, today) >= 0 };
+    if (until) return { kind: 'vignette', until, exempt: false, valid: daysUntil(until, today) >= 0 };
+    if (/vozidlo\s+je[^.\n]{0,40}osvobozen/i.test(text)) return { kind: 'vignette', exempt: true, valid: true };
+    return NOT_FOUND.test(text) || /neplatn|nejsou platn|nem[aá] (platn|pro dnešní den)/i.test(text)
+      ? { kind: 'vignette', exempt: false, valid: false }
+      : { kind: 'unknown' };
   }
 
   if (source === 'overeniauta') {
