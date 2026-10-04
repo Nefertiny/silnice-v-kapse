@@ -93,7 +93,7 @@ export default function AddCar() {
         <SectionLabel>Co ověříme</SectionLabel>
         <Check>Dálniční známku podle SPZ</Check>
         <Check>Platnost technické kontroly (STK)</Check>
-        <Check>Povinné ručení a datum výročí</Check>
+        <Check>Výročí povinného ručení, které zadáte ze smlouvy</Check>
       </GlassCard>
 
       <PrimaryButton label="Ověřit a začít hlídat" disabled={!valid} onPress={submit} />

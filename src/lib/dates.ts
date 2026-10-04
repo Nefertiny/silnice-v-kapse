@@ -23,6 +23,13 @@ export function toIsoDate(date: Date): string {
   return `${date.getFullYear()}-${m}-${d}`;
 }
 
+/** Nejbližší výročí ode dneška (včetně), např. výročí smlouvy povinného ručení. */
+export function nextAnniversary(fromIso: string, today: Date = new Date()): string {
+  const d = parseIsoDate(fromIso);
+  while (daysUntil(toIsoDate(d), today) < 0) d.setFullYear(d.getFullYear() + 1);
+  return toIsoDate(d);
+}
+
 export function formatCz(iso: string): string {
   const d = parseIsoDate(iso);
   return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`;

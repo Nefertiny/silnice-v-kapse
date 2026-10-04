@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { parseIsoDate, toIsoDate } from '@/lib/dates';
@@ -23,11 +23,14 @@ export function DateStepper({
   initial,
   onSave,
   onCancel,
+  children,
 }: {
   title: string;
   initial?: string;
   onSave: (iso: string) => void;
   onCancel: () => void;
+  /** Co ukázat mezi nadpisem a datem (např. výběr pojišťovny). */
+  children?: ReactNode;
 }) {
   const [date, setDate] = useState(() => (initial ? parseIsoDate(initial) : new Date()));
   const shift = (unit: 'd' | 'm' | 'y', by: number) => {
@@ -40,6 +43,7 @@ export function DateStepper({
   return (
     <GlassCard tone="accent">
       <Text style={styles.title}>{title}</Text>
+      {children}
       <View style={styles.row}>
         <Part label="den" value={String(date.getDate())} onMinus={() => shift('d', -1)} onPlus={() => shift('d', 1)} />
         <Part label="měsíc" value={MONTHS[date.getMonth()]} onMinus={() => shift('m', -1)} onPlus={() => shift('m', 1)} />
