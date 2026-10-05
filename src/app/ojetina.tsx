@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
@@ -8,24 +8,40 @@ import { Screen } from '@/components/Screen';
 import { VIN_HELP, VinField } from '@/components/VinField';
 import { BackHeader, Body, GlassCard, PrimaryButton, SecondaryButton, SectionLabel } from '@/components/ui';
 import { normalizeSpz } from '@/lib/cars';
-import { formatCz } from '@/lib/dates';
+import { daysUntil, formatCz } from '@/lib/dates';
 import { parseLookup } from '@/lib/lookup/parse';
 import { POLICIE_BY_SPZ, SOURCES } from '@/lib/lookup/sources';
 import { fmtKm, parseMileage, parseStolen, summarizeMileage, type MileageSummary, type StolenCheck } from '@/lib/usedCar';
+import { fetchUsedCar, vehicleApiConfigured, type UsedCarAnswer, type UsedCarReport } from '@/lib/vehicleApi';
 import { isValidVin } from '@/lib/vin';
 import { colors, fonts, tint } from '@/theme';
 
-type CheckId = 'policie' | 'tachometr';
+type CheckId = 'autokuk' | 'policie' | 'tachometr';
 type Stolen = StolenCheck | 'failed';
 type Mileage = { kind: 'records'; summary: MileageSummary } | { kind: 'not-found' } | { kind: 'failed' } | { kind: 'skipped' };
-type Run = { id: number; queue: CheckId[]; index: number };
+/** vin: zadaný, nebo ten, který Autokuk našel podle SPZ. */
+type Run = { id: number; queue: CheckId[]; index: number; vin?: string };
 
-const CHECK_LABEL: Record<CheckId, string> = { policie: 'Kradené auto', tachometr: 'Historie tachometru' };
+const CHECK_LABEL: Record<CheckId, string> = { autokuk: 'Údaje o autě', policie: 'Kradené auto', tachometr: 'Historie tachometru' };
+const PROVIDER: Record<CheckId, string> = { autokuk: 'Autokuk.cz', policie: SOURCES.policie.provider, tachometr: SOURCES.tachometr.provider };
+
+/** Weby úřadů projdeme jen pro to, co neřekl Autokuk. Tachometr jen s VIN. */
+function freeRun(id: number, done: CheckId[], vin: string | undefined, report?: UsedCarReport): Run {
+  const queue = [...done];
+  if (report?.stolen === undefined) queue.push('policie');
+  if (!report?.mileage.length && vin) queue.push('tachometr');
+  return { id, queue, index: done.length, vin };
+}
 
 type Tone = 'ok' | 'warn' | 'alert';
 
 function stolenTone(result: Stolen | null): Tone {
   return result === 'clear' ? 'ok' : result === 'stolen' ? 'alert' : 'warn';
+}
+
+function autokukTone(answer: UsedCarAnswer | null): Tone {
+  if (answer?.kind !== 'report') return 'warn';
+  return answer.report.deregistered ? 'alert' : 'ok';
 }
 
 function mileageTone(result: Mileage | null): Tone {
@@ -52,6 +68,10 @@ export default function UsedCarCheck() {
   const [stolen, setStolen] = useState<Stolen | null>(null);
   const [mileage, setMileage] = useState<Mileage | null>(null);
   const [webOnly, setWebOnly] = useState(false);
+  const [autokuk, setAutokuk] = useState<UsedCarAnswer | null>(null);
+  // Stejné auto podruhé nechceme platit znovu.
+  const lastAnswer = useRef<{ query: string; answer: UsedCarAnswer } | null>(null);
+  const withApi = vehicleApiConfigured();
 
   const compactSpz = normalizeSpz(spz).replace(/ /g, '');
   const vinOk = isValidVin(vin);
@@ -60,11 +80,30 @@ export default function UsedCarCheck() {
   const current = run && run.index < run.queue.length ? run.queue[run.index] : null;
   const done = !!run && !current;
 
-  const start = () => {
+  const start = async () => {
+    const id = Date.now();
+    const knownVin = vinOk ? vin : undefined;
     setStolen(null);
     setWebOnly(false);
-    setMileage(vinOk ? null : { kind: 'skipped' });
-    setRun({ id: Date.now(), queue: vinOk ? ['policie', 'tachometr'] : ['policie'], index: 0 });
+    setAutokuk(null);
+    setMileage(null);
+    if (!withApi) {
+      if (!knownVin) setMileage({ kind: 'skipped' });
+      setRun(freeRun(id, [], knownVin));
+      return;
+    }
+
+    setRun({ id, queue: ['autokuk'], index: 0, vin: knownVin });
+    const query = knownVin ?? compactSpz;
+    const answer = lastAnswer.current?.query === query ? lastAnswer.current.answer : await fetchUsedCar(query);
+    if (answer.kind !== 'failed') lastAnswer.current = { query, answer };
+    const report = answer.kind === 'report' ? answer.report : undefined;
+    const foundVin = knownVin ?? (report?.vin && isValidVin(report.vin) ? report.vin : undefined);
+    setAutokuk(answer);
+    if (report?.stolen !== undefined) setStolen(report.stolen ? 'stolen' : 'clear');
+    if (report?.mileage.length) setMileage({ kind: 'records', summary: summarizeMileage(report.mileage) });
+    else if (!foundVin) setMileage({ kind: 'skipped' });
+    setRun(freeRun(id, ['autokuk'], foundVin, report));
   };
 
   const next = () => setRun((r) => (r ? { ...r, index: r.index + 1 } : r));
@@ -92,17 +131,23 @@ export default function UsedCarCheck() {
     next();
   };
 
-  const policeSource = vinOk ? SOURCES.policie : POLICIE_BY_SPZ;
+  const policeSource = run?.vin ? SOURCES.policie : POLICIE_BY_SPZ;
 
   return (
     <Screen>
       <BackHeader title="Prověřit ojetinu" />
-      <Body muted>Než auto koupíte, zjistěte zdarma, jestli ho nehledá policie a jestli mu někdo nestočil tachometr.</Body>
+      <Body muted>
+        {withApi
+          ? 'Než auto koupíte, zjistěte, jestli ho nehledá policie, jestli mu někdo nestočil tachometr a odkud pochází.'
+          : 'Než auto koupíte, zjistěte zdarma, jestli ho nehledá policie a jestli mu někdo nestočil tachometr.'}
+      </Body>
 
       <View style={{ gap: 8 }}>
         <SectionLabel>VIN</SectionLabel>
         <VinField value={vin} onChange={setVin} />
-        <Text style={styles.help}>{VIN_HELP} Bez VIN zjistíme jen to, jestli auto nehledá policie.</Text>
+        <Text style={styles.help}>
+          {VIN_HELP} {withApi ? 'Stačí i SPZ, ale podle ní nenajdeme každé auto.' : 'Bez VIN zjistíme jen to, jestli auto nehledá policie.'}
+        </Text>
       </View>
 
       {!vinOk && (
@@ -141,14 +186,14 @@ export default function UsedCarCheck() {
                   {running ? (
                     <ActivityIndicator color={colors.accent} />
                   ) : finished ? (
-                    <DoneIcon tone={check === 'policie' ? stolenTone(stolen) : mileageTone(mileage)} />
+                    <DoneIcon tone={check === 'autokuk' ? autokukTone(autokuk) : check === 'policie' ? stolenTone(stolen) : mileageTone(mileage)} />
                   ) : (
                     <View style={styles.todo} />
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>{CHECK_LABEL[check]}</Text>
-                  <Text style={styles.small}>{check === 'policie' ? SOURCES.policie.provider : SOURCES.tachometr.provider}</Text>
+                  <Text style={styles.small}>{PROVIDER[check]}</Text>
                 </View>
               </View>
             );
@@ -156,12 +201,12 @@ export default function UsedCarCheck() {
         </GlassCard>
       )}
 
-      {current && (
+      {current && current !== 'autokuk' && (
         <>
           <LookupRunner
             key={`${run!.id}-${current}`}
             source={current === 'policie' ? policeSource : SOURCES.tachometr}
-            value={current === 'policie' && !vinOk ? compactSpz : vin}
+            value={run!.vin ?? compactSpz}
             onResult={(text) => onResult(current, text)}
             onFail={(reason) => onFail(current, reason)}
           />
@@ -171,14 +216,57 @@ export default function UsedCarCheck() {
 
       {webOnly && <Body muted>Prověření z webů policie a ministerstva běží jen v telefonu, v prohlížeči to nejde.</Body>}
 
+      {autokuk && <VehicleCard answer={autokuk} />}
       {stolen && <StolenCard result={stolen} />}
       {mileage && <MileageCard result={mileage} />}
 
       <Text style={styles.footnote}>
-        Údaje hledáte sami ze svého telefonu na webu Policie ČR a ministerstva dopravy (kontrolatachometru.cz). Mají informativní povahu. Stav km
-        pochází z technických a emisních kontrol a nemusí odpovídat skutečnému nájezdu.
+        {withApi
+          ? 'Údaje o autě poskytuje Autokuk.cz. Co tam chybí, hledáte sami ze svého telefonu na webu Policie ČR a ministerstva dopravy (kontrolatachometru.cz).'
+          : 'Údaje hledáte sami ze svého telefonu na webu Policie ČR a ministerstva dopravy (kontrolatachometru.cz).'}{' '}
+        Mají informativní povahu. Stav km pochází z technických a emisních kontrol a nemusí odpovídat skutečnému nájezdu.
       </Text>
     </Screen>
+  );
+}
+
+function VehicleCard({ answer }: { answer: UsedCarAnswer }) {
+  if (answer.kind === 'failed') return <Body muted>Autokuk.cz teď neodpověděl, proto prověřujeme zdarma na webech úřadů.</Body>;
+  if (answer.kind === 'not-found') {
+    return (
+      <GlassCard>
+        <Text style={styles.verdict}>Autokuk.cz auto nezná</Text>
+        <Body muted>Prověříme ho zdarma na webech úřadů.</Body>
+      </GlassCard>
+    );
+  }
+  const r = answer.report;
+  const stkExpired = !!r.stkUntil && daysUntil(r.stkUntil) < 0;
+  const engine = [r.fuel, r.powerKw ? `${r.powerKw} kW` : undefined].filter(Boolean).join(', ');
+  const imported = r.imported && ['Ano', r.imported.country, r.imported.date && formatCz(r.imported.date)].filter(Boolean).join(', ');
+  const rows: { label: string; value: string; alert?: boolean }[] = [];
+  if (r.vin) rows.push({ label: 'VIN', value: r.vin });
+  if (r.firstRegistration) rows.push({ label: 'První registrace', value: formatCz(r.firstRegistration) });
+  if (engine) rows.push({ label: 'Motor', value: engine });
+  if (r.stkUntil) rows.push({ label: 'STK platí do', value: stkExpired ? `${formatCz(r.stkUntil)}, propadlá` : formatCz(r.stkUntil), alert: stkExpired });
+  if (imported) rows.push({ label: 'Dovezené', value: imported });
+
+  return (
+    <GlassCard tone={r.deregistered ? 'alert' : undefined}>
+      <Text style={styles.verdict}>{r.name ?? 'Údaje o autě'}</Text>
+      {r.deregistered && (
+        <Body>
+          Auto bylo vyřazené z provozu{r.deregistered.date ? ` ${formatCz(r.deregistered.date)}` : ''}. Než ho koupíte, ověřte si na úřadě, že ho jde znovu
+          přihlásit.
+        </Body>
+      )}
+      {rows.map((row) => (
+        <View key={row.label} style={styles.infoRow}>
+          <Text style={styles.infoLabel}>{row.label}</Text>
+          <Text style={[styles.infoValue, row.alert && { color: colors.alert }]}>{row.value}</Text>
+        </View>
+      ))}
+    </GlassCard>
   );
 }
 
@@ -281,5 +369,8 @@ const styles = StyleSheet.create({
   rowTitle: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.text },
   small: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.muted },
   verdict: { fontFamily: fonts.display, fontSize: 17, color: colors.text },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  infoLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.muted },
+  infoValue: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 13, color: colors.text, textAlign: 'right' },
   footnote: { fontFamily: fonts.body, fontSize: 11, lineHeight: 16, color: colors.faint, textAlign: 'center' },
 });
