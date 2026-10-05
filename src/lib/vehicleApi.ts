@@ -11,15 +11,20 @@ export type VehicleInfo = {
 export type UsedCarReport = {
   vin?: string;
   name?: string;
+  year?: number;
   firstRegistration?: string;
   fuel?: string;
   powerKw?: number;
   stkUntil?: string;
   mileage: { date: string; km: number }[];
   imported?: { country?: string; date?: string };
-  deregistered?: { date?: string };
+  /** current: auto je teď vyřazené z provozu, jinak bylo vyřazené v minulosti. */
+  deregistered?: { current: boolean; date?: string };
   /** undefined: Autokuk to jasně neřekl, appka se zeptá webu policie. */
   stolen?: boolean;
+  owners?: number;
+  /** Poznámky výrobce, například svolávací akce. */
+  notes?: string[];
 };
 
 export type UsedCarAnswer = { kind: 'report'; report: UsedCarReport } | { kind: 'not-found' } | { kind: 'failed' };
@@ -31,10 +36,10 @@ export function vehicleApiConfigured(): boolean {
   return !!API_URL;
 }
 
-async function post<T>(path: string, query: string): Promise<T | null> {
+async function post<T>(path: string, query: string, timeoutMs = 15000): Promise<T | null> {
   if (!API_URL) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_URL.replace(/\/$/, '')}${path}`, {
       method: 'POST',
@@ -56,7 +61,8 @@ export function fetchVehicle(query: string): Promise<VehicleInfo | null> {
 }
 
 export async function fetchUsedCar(query: string): Promise<UsedCarAnswer> {
-  const body = await post<{ found?: boolean } & Partial<UsedCarReport>>('/used-car', query);
+  // Pátrání policie v Autokuku může chvíli trvat, proto delší limit.
+  const body = await post<{ found?: boolean } & Partial<UsedCarReport>>('/used-car', query, 30000);
   if (!body) return { kind: 'failed' };
   if (!body.found) return { kind: 'not-found' };
   const { found: _found, ...report } = body;

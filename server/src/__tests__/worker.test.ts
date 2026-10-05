@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import worker from '../index';
+import { sample } from '../fixtures/autokukSample';
 
 const env = { AUTOKUK_API_KEY: 'test-key', APP_TOKEN: 'app' };
 
@@ -30,35 +31,40 @@ describe('worker', () => {
   });
 
   it('asks Autokuk for theft data and returns the used-car report', async () => {
-    upstream.mockResolvedValue(new Response(JSON.stringify({ vehicle: { brand: 'ŠKODA', model: 'FABIA' }, theft: { stolen: false } })));
+    upstream.mockResolvedValue(new Response(JSON.stringify(sample)));
     const res = await call('/used-car', '1ab 2345');
-    expect(await res.json()).toMatchObject({ found: true, name: 'ŠKODA FABIA', stolen: false, mileage: [] });
+    expect(await res.json()).toMatchObject({ found: true, name: 'ŠKODA OCTAVIA III', stolen: false, owners: 2 });
     const [url, init] = upstream.mock.calls[0];
     expect(url).toBe('https://autokuk.cz/api/v1/search');
     expect(init.headers.Authorization).toBe('Bearer test-key');
     expect(JSON.parse(init.body)).toEqual({ query: '1AB2345', include: ['theft'] });
   });
 
-  it('logs field names but never values', async () => {
-    upstream.mockResolvedValue(new Response(JSON.stringify({ vehicle: { vin: 'TMBJJ7NE5K0123456' } })));
+  it('logs the remaining quota but no vehicle data', async () => {
+    upstream.mockResolvedValue(new Response(JSON.stringify(sample)));
     await call('/used-car', 'TMBJJ7NE5K0123456');
     const logged = (console.log as jest.Mock).mock.calls.flat().join(' ');
-    expect(logged).toContain('"vin":"string"');
+    expect(logged).toContain('dnes zbývá 72');
     expect(logged).not.toContain('TMBJJ7NE5K0123456');
+    expect(logged).not.toContain('Novak');
   });
 
   it('says not found, rejects strangers and reports upstream errors', async () => {
-    upstream.mockResolvedValue(new Response('{}', { status: 404 }));
+    const error = (status: number, code: string) => new Response(JSON.stringify({ status: 'error', data: null, meta: null, error: { code, message: '' } }), { status });
+    upstream.mockResolvedValue(error(404, 'NOT_FOUND'));
+    expect(await (await call('/used-car', 'TMBJJ7NE5K0123456')).json()).toEqual({ found: false });
+    upstream.mockResolvedValue(new Response(JSON.stringify({ status: 'ok', data: null, meta: null, error: null })));
     expect(await (await call('/used-car', 'TMBJJ7NE5K0123456')).json()).toEqual({ found: false });
     expect((await call('/used-car', 'TMBJJ7NE5K0123456', 'wrong')).status).toBe(403);
-    upstream.mockResolvedValue(new Response('{}', { status: 429 }));
+    upstream.mockResolvedValue(error(429, 'RATE_LIMIT_DAILY'));
     expect((await call('/used-car', 'TMBJJ7NE5K0123456')).status).toBe(502);
+    expect((console.log as jest.Mock).mock.calls.flat().join(' ')).toContain('429 RATE_LIMIT_DAILY');
     expect((await call('/nic', 'TMBJJ7NE5K0123456')).status).toBe(404);
   });
 
   it('keeps the vehicle route for adding a car', async () => {
-    upstream.mockResolvedValue(new Response(JSON.stringify({ vehicle: { brand: 'ŠKODA', model: 'FABIA' } })));
-    expect(await (await call('/vehicle', '1AB2345')).json()).toMatchObject({ name: 'ŠKODA FABIA' });
+    upstream.mockResolvedValue(new Response(JSON.stringify(sample)));
+    expect(await (await call('/vehicle', '1AB2345')).json()).toMatchObject({ name: 'ŠKODA OCTAVIA III', vignetteUntil: '2027-01-31' });
     expect(JSON.parse(upstream.mock.calls[0][1].body).include).toEqual(['vignette']);
   });
 });

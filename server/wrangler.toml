@@ -6,6 +6,6 @@ compatibility_date = "2026-09-01"
 #   npx wrangler secret put AUTOKUK_API_KEY
 #   npx wrangler secret put APP_TOKEN   (volitelné)
 
-# Logy v nastavení serveru na Cloudflare. Server do nich píše jen názvy polí z odpovědi Autokuku, žádné údaje o autech.
+# Logy v nastavení serveru na Cloudflare. Server do nich píše jen chyby Autokuku a kolik dotazů dnes zbývá, žádné údaje o autech.
 [observability]
 enabled = true

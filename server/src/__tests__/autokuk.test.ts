@@ -1,14 +1,5 @@
-import { mapAutokuk, normalizeDate } from '../autokuk';
-
-// Smyšlená odpověď ve tvaru, jaký API pravděpodobně vrací. Upravit po prvním skutečném dotazu.
-const sample = {
-  vehicle: { vin: 'TMBJJ7NE5K0123456', brand: 'ŠKODA', model: 'OCTAVIA' },
-  inspections: [
-    { date: '2022-10-20', valid_until: '2024-10-27' },
-    { date: '2024-10-25', valid_until: '2026-10-27' },
-  ],
-  vignette: { valid: true, valid_until: '31. 1. 2027' },
-};
+import { mapAutokuk, normalizeDate, remainingToday } from '../autokuk';
+import { sample, today } from '../fixtures/autokukSample';
 
 describe('mapAutokuk', () => {
   it('normalizes date formats', () => {
@@ -18,17 +9,23 @@ describe('mapAutokuk', () => {
   });
 
   it('maps VIN, name, STK and vignette', () => {
-    expect(mapAutokuk(sample)).toEqual({
+    expect(mapAutokuk(sample, today)).toEqual({
       vin: 'TMBJJ7NE5K0123456',
-      name: 'ŠKODA OCTAVIA',
-      stkUntil: '2026-10-27',
+      name: 'ŠKODA OCTAVIA III',
+      // Poslední způsobilá prohlídka 20. 3. 2024 (opakovaná), evidenční kontrola STK neprodlužuje.
+      stkUntil: '2026-03-20',
       vignetteUntil: '2027-01-31',
       vignetteExempt: undefined,
     });
   });
 
   it('handles an exempt vehicle and an empty answer', () => {
-    expect(mapAutokuk({ vignette: { exempt: true } })).toMatchObject({ vignetteExempt: true, vignetteUntil: undefined });
-    expect(mapAutokuk({})).toEqual({ vin: undefined, name: undefined, stkUntil: undefined, vignetteUntil: undefined, vignetteExempt: undefined });
+    expect(mapAutokuk({ data: { vignette: { exempt: true, valid_until: null } } })).toMatchObject({ vignetteExempt: true, vignetteUntil: undefined });
+    expect(mapAutokuk({ status: 'error', data: null })).toEqual({ vin: undefined, name: undefined, stkUntil: undefined, vignetteUntil: undefined, vignetteExempt: undefined });
+  });
+
+  it('reads the remaining daily quota', () => {
+    expect(remainingToday(sample)).toBe(72);
+    expect(remainingToday({})).toBeUndefined();
   });
 });
