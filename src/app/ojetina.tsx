@@ -41,7 +41,7 @@ function stolenTone(result: Stolen | null): Tone {
 
 function autokukTone(answer: UsedCarAnswer | null): Tone {
   if (answer?.kind !== 'report') return 'warn';
-  return answer.report.deregistered ? 'alert' : 'ok';
+  return answer.report.deregistered?.current ? 'alert' : 'ok';
 }
 
 function mileageTone(result: Mileage | null): Tone {
@@ -230,6 +230,9 @@ export default function UsedCarCheck() {
   );
 }
 
+/** Registr vozidel píše palivo zkratkou. Neznámé hodnoty ukážeme, jak přišly. */
+const FUEL: Record<string, string> = { BA: 'Benzín', NM: 'Nafta', EL: 'Elektro', LPG: 'LPG', CNG: 'CNG' };
+
 function VehicleCard({ answer }: { answer: UsedCarAnswer }) {
   if (answer.kind === 'failed') return <Body muted>Autokuk.cz teď neodpověděl, proto prověřujeme zdarma na webech úřadů.</Body>;
   if (answer.kind === 'not-found') {
@@ -242,22 +245,26 @@ function VehicleCard({ answer }: { answer: UsedCarAnswer }) {
   }
   const r = answer.report;
   const stkExpired = !!r.stkUntil && daysUntil(r.stkUntil) < 0;
-  const engine = [r.fuel, r.powerKw ? `${r.powerKw} kW` : undefined].filter(Boolean).join(', ');
+  const fuel = r.fuel && (FUEL[r.fuel.toUpperCase()] ?? r.fuel);
+  const engine = [fuel, r.powerKw ? `${r.powerKw} kW` : undefined].filter(Boolean).join(', ');
+  const pastDereg = r.deregistered && !r.deregistered.current ? r.deregistered : undefined;
   const imported = r.imported && ['Ano', r.imported.country, r.imported.date && formatCz(r.imported.date)].filter(Boolean).join(', ');
   const rows: { label: string; value: string; alert?: boolean }[] = [];
   if (r.vin) rows.push({ label: 'VIN', value: r.vin });
+  if (r.year) rows.push({ label: 'Rok výroby', value: String(r.year) });
   if (r.firstRegistration) rows.push({ label: 'První registrace', value: formatCz(r.firstRegistration) });
   if (engine) rows.push({ label: 'Motor', value: engine });
   if (r.stkUntil) rows.push({ label: 'STK platí do', value: stkExpired ? `${formatCz(r.stkUntil)}, propadlá` : formatCz(r.stkUntil), alert: stkExpired });
   if (imported) rows.push({ label: 'Dovezené', value: imported });
+  if (r.owners) rows.push({ label: 'Počet majitelů', value: String(r.owners) });
+  if (pastDereg) rows.push({ label: 'Vyřazené z provozu', value: pastDereg.date ? `v minulosti, ${formatCz(pastDereg.date)}` : 'v minulosti' });
 
   return (
-    <GlassCard tone={r.deregistered ? 'alert' : undefined}>
+    <GlassCard tone={r.deregistered?.current ? 'alert' : undefined}>
       <Text style={styles.verdict}>{r.name ?? 'Údaje o autě'}</Text>
-      {r.deregistered && (
+      {r.deregistered?.current && (
         <Body>
-          Auto bylo vyřazené z provozu{r.deregistered.date ? ` ${formatCz(r.deregistered.date)}` : ''}. Než ho koupíte, ověřte si na úřadě, že ho jde znovu
-          přihlásit.
+          Auto je vyřazené z provozu. Než ho koupíte, ověřte si na úřadě, že ho jde znovu přihlásit.
         </Body>
       )}
       {rows.map((row) => (
@@ -266,6 +273,17 @@ function VehicleCard({ answer }: { answer: UsedCarAnswer }) {
           <Text style={[styles.infoValue, row.alert && { color: colors.alert }]}>{row.value}</Text>
         </View>
       ))}
+      {r.notes && (
+        <View style={{ gap: 4 }}>
+          <Text style={styles.infoLabel}>Výrobce hlásí</Text>
+          {r.notes.map((note) => (
+            <Text key={note} style={[styles.infoValue, { textAlign: 'left' }]}>
+              {note}
+            </Text>
+          ))}
+          <Text style={styles.small}>Jde-li o svolávací akci, nechte si od prodejce potvrdit, že ji servis provedl.</Text>
+        </View>
+      )}
     </GlassCard>
   );
 }

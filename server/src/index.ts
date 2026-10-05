@@ -1,6 +1,6 @@
 // Malý server (Cloudflare Worker) mezi appkou a Autokuk API.
 // Klíč k Autokuk API je jen tady, v nastavení serveru, nikdy v appce.
-import { mapAutokuk, mapUsedCar, shapeOf, type Json } from './autokuk';
+import { mapAutokuk, mapUsedCar, remainingToday, type Json } from './autokuk';
 
 export interface Env {
   AUTOKUK_API_KEY: string;
@@ -43,14 +43,17 @@ export default {
       body: JSON.stringify({ query, include: route.include }),
     });
     if (upstream.status === 404) return json(route.notFound);
+    const data = (await upstream.json().catch(() => null)) as Json;
     if (!upstream.ok) {
-      console.log(`Autokuk ${upstream.status} for ${url.pathname}`);
+      // 401 špatný klíč, 403 tarif bez API, 429 vyčerpaný denní limit. Appka pak prověří zdarma na webech úřadů.
+      const code = (data as { error?: { code?: string } } | null)?.error?.code ?? '';
+      console.log(`Autokuk ${upstream.status} ${code} ${url.pathname}`);
       return json({ error: 'upstream', status: upstream.status }, 502);
     }
+    if ((data as { data?: unknown } | null)?.data == null) return json(route.notFound);
 
-    const data = (await upstream.json()) as Json;
-    // Jen názvy polí, žádné hodnoty: podle nich jde v logu serveru zpřesnit převod.
-    console.log(`Autokuk shape ${url.pathname}: ${JSON.stringify(shapeOf(data))}`);
+    // Do logu jen kolik dotazů dnes zbývá, žádné údaje o autě.
+    console.log(`Autokuk ${url.pathname}: dnes zbývá ${remainingToday(data) ?? '?'}`);
     return json(route.answer(data));
   },
 };

@@ -6,7 +6,7 @@ Mobilní appka pro Android a iOS, která hlídá auto a pomáhá s cestou:
 - **Povinné ručení.** Ukáže tři nabídky: nejlepší cenu, stejnou cenu s více výhodami a placenou nabídku partnera.
 - **Cesta do práce.** Jednou zadáte domov, práci a kdy tam chcete být. Každé ráno appka podle aktuálního provozu řekne, kolik dnes pojedete a kdy nejpozději vyrazit, odpoledne ukáže cestu domů. Ve všední dny může ráno připomenout, ať se podíváte.
 - **Nehoda krok za krokem.** Po nehodě appka provede bezpečností, řekne, jestli volat policii, uloží místo a čas, vyfotí škody i doklady druhého řidiče a připraví PDF podklad pro pojišťovnu.
-- **Prověřit ojetinu.** Před koupí auta appka zjistí, jestli ho nehledá policie jako kradené, a nakreslí historii tachometru z technických kontrol. Upozorní, když km šly dozadu. S Autokuk API navíc ukáže model, motor, první registraci, platnost STK, dovoz a vyřazení z provozu, a to i jen podle SPZ.
+- **Prověřit ojetinu.** Před koupí auta appka zjistí, jestli ho nehledá policie jako kradené, a nakreslí historii tachometru z technických kontrol. Upozorní, když km šly dozadu. S Autokuk API navíc ukáže model, rok výroby, motor, první registraci, platnost STK, dovoz, počet majitelů, vyřazení z provozu a svolávací akce výrobce, a to i jen podle SPZ.
 - **Kdy vyrazit.** Pro jízdu teď, dnes večer, zítra ráno nebo o víkendu spočítá nejlepší čas odjezdu.
 - **Objížďky a nabíjení.** Poradí, jestli objet uzavírku, a majitelům elektroaut podle dojezdu navrhne nabíjení na trase.
 - **Vozový park.** Zdarma je jedno auto, s předplatným Premium (29 Kč měsíčně) neomezeně aut a žádná reklama.
@@ -69,7 +69,7 @@ Bez klíče appka trasu nehledá a ukáže ukázkovou dobu jízdy.
 
 ## Zapnutí Autokuk API
 
-Autokuk.cz podle VIN nebo SPZ vrátí najednou údaje o autě, platnost STK, historii tachometru, dovoz, vyřazení z provozu, pátrání policie a dálniční známku. Pro komerční použití API vyžaduje placený tarif (za 299 Kč měsíčně). Appka se pak zeptá nejdřív Autokuku a oficiální weby použije jen pro to, co Autokuk nevrátí (například povinné ručení). Při prověření ojetiny se stejné auto podruhé za sebou znovu neptá, ať se zbytečně nečerpají dotazy.
+Autokuk.cz podle VIN nebo SPZ vrátí najednou údaje o autě, technické prohlídky, historii tachometru, dovoz, vyřazení z provozu, majitele, pátrání policie (CZ a SK) a dálniční známku. API je v tarifech Profi (299 Kč měsíčně, 75 prověření denně, 10 dotazů za minutu, komerční použití), Business a Enterprise. Denní limit se sdílí s vyhledáváním na webu Autokuku a resetuje se o půlnoci. Když dojde, appka prověří auto zdarma na webech úřadů. Appka se pak zeptá nejdřív Autokuku a oficiální weby použije jen pro to, co Autokuk nevrátí (například povinné ručení). Při prověření ojetiny se stejné auto podruhé za sebou znovu neptá, ať se zbytečně nečerpají dotazy.
 
 Klíč k Autokuk API nesmí být v appce, jinak by si ho kdokoli vytáhl a čerpal z vašeho tarifu. Proto mezi appkou a Autokukem stojí malý server na Cloudflare (zdarma do 100 000 dotazů denně).
 
@@ -82,7 +82,7 @@ Klíč k Autokuk API nesmí být v appce, jinak by si ho kdokoli vytáhl a čerp
 7. Do souboru `.env` v hlavní složce (když ho nemáte, zkopírujte `.env.example`) doplňte `EXPO_PUBLIC_API_URL=` a adresu serveru (a heslo appky, pokud jste ho nastavili).
 8. Restartujte `npx expo start`.
 
-Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hledá údaje podle názvů polí (`server/src/autokuk.ts`). Kradené auto appka převezme z Autokuku, jen když je odpověď jasná, jinak se zeptá webu policie. Server zapisuje do logu na Cloudflare (Workers & Pages, silnice-v-kapse-api, Logs) jen názvy a typy polí z odpovědi, žádné údaje o autech. Podle nich je po prvních dotazech dobré převod zpřesnit.
+Převod odpovědi je v `server/src/autokuk.ts` podle [schématu Autokuk API](https://autokuk.cz/api/openapi.yaml). Platnost STK Autokuk nevrací, server ji odhadne jako poslední prohlídku, při které bylo auto způsobilé, plus 2 roky. Kradené auto appka převezme z Autokuku, jen když česká kontrola výslovně nic nenašla nebo některá kontrola auto našla. Jinak se zeptá webu policie. Jména a adresy majitelů server appce nikdy nepošle, jen jejich počet. Do logu na Cloudflare (Workers & Pages, silnice-v-kapse-api, Logs) zapisuje jen chyby Autokuku a kolik dotazů dnes zbývá.
 
 ## Co je skutečné a co zatím ukázka
 
@@ -92,7 +92,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 | Upozornění 30, 7 a 1 den před koncem termínu | Funguje v telefonu (ne v prohlížeči) |
 | Ověření z oficiálních webů v telefonu | Hotové, ale adresy a formuláře je nutné vyzkoušet na skutečném telefonu |
 | Zadání VIN při přidání auta a na domovské stránce | Funguje |
-| Zjištění údajů přes Autokuk API | Hotové, zapne se adresou serveru v `.env`. Převod odpovědi je nutné zpřesnit po prvních skutečných dotazech |
+| Zjištění údajů přes Autokuk API | Hotové podle schématu Autokuku, zapne se adresou serveru v `.env`. Ještě nevyzkoušené se skutečným klíčem |
 | Ruční zadání dat, pojišťovna a výročí ručení tlačítky | Funguje |
 | Ceny povinného ručení a tři nabídky | Ukázková data, chybí partner (pojišťovna nebo srovnávač) |
 | Trasa, vzdálenost a mapa | Funguje s klíčem Mapy.com |
@@ -108,7 +108,7 @@ Přesný tvar odpovědi Autokuk API není veřejně popsaný, proto server hled�
 
 ## Co je potřeba udělat před spuštěním
 
-- **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz, kontrolatachometru.cz a pátrání policie na skutečném telefonu a ověřit jejich podmínky použití. U Autokuku ověřit podmínky API (zobrazení výsledků v appce, ukládání) a hlídat, kolik dotazů tarif pokryje.
+- **Data o autě.** Vyzkoušet eDálnici, overeniauta.cz, kontrolatachometru.cz a pátrání policie na skutečném telefonu a ověřit jejich podmínky použití. Obchodní podmínky Autokuku povolují komerční použití přes API, ale neříkají nic o zobrazování výsledků uživatelům jiné appky ani o ukládání. Před spuštěním to potvrdit e-mailem na info@autokuk.cz a hlídat, jestli stačí 75 prověření denně.
 - **Povinné ručení.** Zprostředkovat pojištění smí jen registrovaný subjekt u ČNB. Nejjednodušší je partnerský (affiliate) program srovnávače nebo pojišťovny. Placenou nabídku partnera je nutné v appce označit jako reklamu, to už appka dělá.
 - **Doprava a mapy.** Získat přístup k uzavírkám ŘSD a nechat si potvrdit použití v appce s reklamou a předplatným. Napojit mapu nabíječek (Open Charge Map) a nahradit odhad zdržení ve špičkách skutečnými daty.
 - **Peníze.** Reklama přes Google AdMob, předplatné přes Google Play a App Store (vývojářský účet Google stojí jednorázově 25 USD, Apple 99 USD ročně).
